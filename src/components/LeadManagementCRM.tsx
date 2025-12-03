@@ -5,7 +5,6 @@ import CommonTable from "@/components/CommonTable";
 import WrapperContent from "@/components/WrapperContent";
 import {
   CheckCircleOutlined,
-  EyeOutlined,
   FacebookOutlined,
   MailOutlined,
   MessageOutlined,
@@ -18,7 +17,17 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import type { MenuProps, TableColumnsType } from "antd";
-import { Avatar, Badge, Button, Dropdown, Modal, Select, Space, Tag, message } from "antd";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Dropdown,
+  Modal,
+  Select,
+  Space,
+  Tag,
+  message,
+} from "antd";
 import { useState } from "react";
 import LeadDetailDrawer from "./LeadDetailDrawer";
 
@@ -599,15 +608,6 @@ export default function LeadManagementCRM() {
   };
 
   const getLeadActionMenu = (lead: Lead): MenuProps["items"] => [
-    {
-      key: "view",
-      label: "Xem chi tiết",
-      icon: <EyeOutlined />,
-      onClick: () => handleLeadAction(lead.id, "view"),
-    },
-    {
-      type: "divider",
-    },
     {
       key: "interested",
       label: "Quan tâm",
