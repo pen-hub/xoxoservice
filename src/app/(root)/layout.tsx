@@ -293,7 +293,10 @@ export default function DashboardLayout({
     );
   }
   return (
-    <Layout style={{ minHeight: "100vh" }} className="bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]">
+    <Layout
+      style={{ minHeight: "100vh" }}
+      className="bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"
+    >
       {!isMobile && (
         <Sider
           trigger={null}
@@ -359,17 +362,10 @@ export default function DashboardLayout({
       )}
       {isMobile && (
         <Drawer
-          title={
-            <Text
-              style={{
-                color: token.colorPrimary,
-                fontSize: 18,
-                fontWeight: "bold",
-              }}
-            >
-              POS System
-            </Text>
-          }
+          title={<Image src="/logo.png" alt="Logo" width={120} height={40} />}
+          style={{
+            backgroundColor: "#000000",
+          }}
           placement="left"
           onClose={() => setSidebarOpen(false)}
           open={isMobile && sidebarOpen}
@@ -386,7 +382,11 @@ export default function DashboardLayout({
           >
             <div>
               <Menu
+                style={{
+                  backgroundColor: "#000000",
+                }}
                 mode="inline"
+                theme="dark"
                 selectedKeys={getSelectedKey()}
                 openKeys={openKeys}
                 onOpenChange={handleOpenChange}
@@ -409,24 +409,43 @@ export default function DashboardLayout({
                       key: "user-info",
                       label: (
                         <div className="flex flex-col items-center p-2">
-                          <Text strong>{user?.fullName}</Text>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
+                          <Text strong style={{ color: "white" }}>
+                            {user?.fullName}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: "rgba(255, 255, 255, 0.65)",
+                            }}
+                          >
                             {user?.roleCode}
                           </Text>
                         </div>
                       ),
+                      disabled: true,
                     },
+                    { type: "divider" },
                     ...userMenuItems,
                   ],
+                  style: {
+                    backgroundColor: "#141414",
+                    border: "1px solid #434343",
+                  },
+                  className: "user-dropdown-menu",
                 }}
                 placement="topLeft"
+                trigger={["click"]}
               >
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     cursor: "pointer",
+                    padding: "8px 12px",
+                    borderRadius: token.borderRadius,
+                    transition: "background-color 0.2s",
                   }}
+                  className="hover:bg-gray-800"
                 >
                   <Avatar
                     icon={<UserOutlined />}
@@ -436,8 +455,15 @@ export default function DashboardLayout({
                     }}
                   />
                   <div className="flex flex-col">
-                    <Text strong>{user?.fullName}</Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text strong style={{ color: "white" }}>
+                      {user?.fullName}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(255, 255, 255, 0.65)",
+                      }}
+                    >
                       {user?.roleCode}
                     </Text>
                   </div>
