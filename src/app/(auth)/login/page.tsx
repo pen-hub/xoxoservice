@@ -74,7 +74,7 @@ export default function LoginPage() {
           <Form
             form={form}
             onFinish={handleSubmit}
-            layout="vertical "
+            layout="vertical"
             size="large"
             autoComplete="off"
           >

@@ -274,7 +274,7 @@ export default function TrainingPage() {
       dataIndex: "title",
       key: "title",
       width: 250,
-      fixed: "left",
+      fixed: "left" as const,
       render: (title: string) => <Text strong>{title}</Text>,
     },
     {
@@ -307,7 +307,7 @@ export default function TrainingPage() {
       dataIndex: "videoCount",
       key: "videoCount",
       width: 100,
-      align: "center",
+      align: "center" as const,
       render: (count: number) => (
         <Space>
           <VideoCameraOutlined />
@@ -320,7 +320,7 @@ export default function TrainingPage() {
       dataIndex: "enrolledCount",
       key: "enrolledCount",
       width: 100,
-      align: "center",
+      align: "center" as const,
       render: (count: number) => (
         <Space>
           <TeamOutlined />
@@ -363,7 +363,7 @@ export default function TrainingPage() {
       title: "Thao tác",
       key: "action",
       width: 160,
-      fixed: "right",
+      fixed: "right" as const,
       render: (_: unknown, record: TrainingCourse) => (
         <Space size="small">
           <Button

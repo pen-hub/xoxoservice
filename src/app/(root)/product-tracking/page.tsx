@@ -943,7 +943,7 @@ const ProductTrackingDetailDrawer: React.FC<
       {/* Stages Progress */}
       <Card size="small" title="Hành trình sản phẩm">
         <Steps
-          vertical
+          orientation="vertical"
           size="small"
           current={data.stages.findIndex((s) => s.status === "process")}
           items={data.stages.map((stage) => ({

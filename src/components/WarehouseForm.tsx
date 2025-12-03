@@ -22,7 +22,7 @@ function WarehouseForm({
   return (
     <Form
       form={form}
-      layout="vertical "
+      layout="vertical"
       initialValues={initialValues}
       onFinish={(v) => onSubmit(v as WarehouseFormValues)}
     >

@@ -310,7 +310,7 @@ export default function RecruitmentPage() {
       dataIndex: "name",
       key: "name",
       width: 180,
-      fixed: "left",
+      fixed: "left" as const,
     },
     {
       title: "Số điện thoại",
@@ -393,7 +393,7 @@ export default function RecruitmentPage() {
       title: "Thao tác",
       key: "action",
       width: 240,
-      fixed: "right",
+      fixed: "right" as const,
       render: (_: unknown, record: Candidate) => (
         <Space size="small">
           <Button

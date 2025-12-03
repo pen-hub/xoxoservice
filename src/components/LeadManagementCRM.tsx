@@ -1,5 +1,8 @@
 "use client";
 
+import type { PropRowDetails } from "@/components/CommonTable";
+import CommonTable from "@/components/CommonTable";
+import WrapperContent from "@/components/WrapperContent";
 import {
   FacebookOutlined,
   MailOutlined,
@@ -10,18 +13,8 @@ import {
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import CommonTable from "@/components/CommonTable";
-import WrapperContent from "@/components/WrapperContent";
-import type { PropRowDetails } from "@/components/CommonTable";
-import {
-  Avatar,
-  Badge,
-  Button,
-  Select,
-  Space,
-  Tag,
-} from "antd";
 import type { TableColumnsType } from "antd";
+import { Avatar, Badge, Button, Select, Space, Tag } from "antd";
 import { useState } from "react";
 import LeadDetailDrawer from "./LeadDetailDrawer";
 
@@ -474,9 +467,12 @@ const mockLeads: Lead[] = [
   },
 ];
 
-const LeadDrawerWrapper: React.FC<PropRowDetails<Lead>> = ({ data, onClose }) => {
+const LeadDrawerWrapper: React.FC<PropRowDetails<Lead>> = ({
+  data,
+  onClose,
+}) => {
   if (!data) return null;
-  
+
   // Convert Lead format to match LeadDetailDrawer's expected format
   const statusMap: Record<string, string> = {
     new: "New",
@@ -488,21 +484,25 @@ const LeadDrawerWrapper: React.FC<PropRowDetails<Lead>> = ({ data, onClose }) =>
     converted: "Converted",
     failed: "Failed",
   };
-  
+
   const convertedLead = {
     ...data,
     key: data.id,
     id: parseInt(data.id) || 0,
-    status: (statusMap[data.status] || "New") as "New" | "Assigned" | "Contacted" | "Qualified" | "Proposal" | "Negotiation" | "Converted" | "Failed",
+    status: (statusMap[data.status] || "New") as
+      | "New"
+      | "Assigned"
+      | "Contacted"
+      | "Qualified"
+      | "Proposal"
+      | "Negotiation"
+      | "Converted"
+      | "Failed",
     visitSchedules: data.appointmentSchedules, // Convert back for drawer compatibility
   };
-  
+
   return (
-    <LeadDetailDrawer
-      visible={true}
-      onClose={onClose}
-      lead={convertedLead}
-    />
+    <LeadDetailDrawer visible={true} onClose={onClose} lead={convertedLead} />
   );
 };
 

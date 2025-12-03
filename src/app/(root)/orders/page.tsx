@@ -9,17 +9,18 @@ import {
   ClockCircleOutlined,
   DollarOutlined,
   EditOutlined,
-  FileImageOutlined,
   FileTextOutlined,
   PlusOutlined,
   ProjectOutlined,
   ShoppingOutlined,
-  TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import {
+  closestCenter,
   DndContext,
   DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
   PointerSensor,
   useDroppable,
   useSensor,
@@ -60,12 +61,29 @@ import React, { useState } from "react";
 const { Text, Title } = Typography;
 const { TextArea } = Input;
 
-interface OrderItem {
+interface WorkflowStage {
+  stage: "pending" | "processing" | "quality_check" | "completed";
+  technicianId: string;
+  technicianName: string;
+  startedAt?: string;
+  completedAt?: string;
+  notes?: string;
+}
+
+interface ServiceItem {
   id: string;
-  productName: string;
-  quantity: number;
+  itemName: string; // Tên sản phẩm: "Giày Nike Air", "Túi Hermes"
+  itemType: string; // Loại: "Giày", "Túi", "Ví"
+  serviceType: string; // Dịch vụ: "Vệ sinh", "Sơn phục hồi", "Thay đế"
   price: number;
-  total: number;
+  currentStatus: "pending" | "processing" | "quality_check" | "completed";
+  currentTechnician: string;
+  workflow: WorkflowStage[]; // Lịch sử các công đoạn
+  images: {
+    before: string[];
+    after: string[];
+  };
+  notes?: string;
 }
 
 interface StatusHistory {
@@ -82,6 +100,7 @@ interface Order {
   invoiceNumber: string;
   invoiceDate: string;
   customer: string;
+  customerPhone: string;
   status:
     | "pending"
     | "processing"
@@ -93,12 +112,7 @@ interface Order {
   paidAmount: number;
   invoiceStaff: string;
   salesStaff: string;
-  technician: string;
-  items: OrderItem[];
-  images: {
-    before: string[];
-    after: string[];
-  };
+  serviceItems: ServiceItem[]; // Danh sách items dịch vụ
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -111,53 +125,90 @@ const mockOrders: Order[] = [
     orderNumber: "DH-2024-001",
     invoiceNumber: "HD-2024-001",
     invoiceDate: "2024-12-01",
-    customer: "Tuan anh",
+    customer: "Nguyễn Tuấn Anh",
+    customerPhone: "0901234567",
     status: "processing",
     paymentStatus: "partial",
-    totalAmount: 50000000,
-    paidAmount: 20000000,
+    totalAmount: 2500000,
+    paidAmount: 1000000,
     invoiceStaff: "Nguyễn Văn A",
     salesStaff: "Trần Thị B",
-    technician: "Lê Văn C",
-    items: [
+    serviceItems: [
       {
-        id: "1",
-        productName: "Ví da bò cao cấp",
-        quantity: 100,
-        price: 300000,
-        total: 30000000,
+        id: "si1",
+        itemName: "Giày Nike Air Force 1",
+        itemType: "Giày",
+        serviceType: "Vệ sinh + Sơn phục hồi",
+        price: 1500000,
+        currentStatus: "processing",
+        currentTechnician: "Lê Văn C",
+        workflow: [
+          {
+            stage: "pending",
+            technicianId: "t1",
+            technicianName: "Trần Thị B (Sale)",
+            startedAt: "2024-12-01 08:30:00",
+            completedAt: "2024-12-01 09:00:00",
+            notes: "Tiếp nhận hàng, check tình trạng ban đầu",
+          },
+          {
+            stage: "processing",
+            technicianId: "t2",
+            technicianName: "Lê Văn C",
+            startedAt: "2024-12-01 09:00:00",
+            notes: "Đang vệ sinh và sơn phục hồi",
+          },
+        ],
+        images: {
+          before: [
+            "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+          after: [],
+        },
+        notes: "Yêu cầu sơn lại màu trắng nguyên bản",
       },
       {
-        id: "2",
-        productName: "Thắt lưng da",
-        quantity: 50,
-        price: 400000,
-        total: 20000000,
+        id: "si2",
+        itemName: "Túi xách Louis Vuitton",
+        itemType: "Túi",
+        serviceType: "Vệ sinh da + Phục hồi góc túi",
+        price: 1000000,
+        currentStatus: "pending",
+        currentTechnician: "Chưa phân công",
+        workflow: [
+          {
+            stage: "pending",
+            technicianId: "t1",
+            technicianName: "Trần Thị B (Sale)",
+            startedAt: "2024-12-01 08:30:00",
+            notes: "Tiếp nhận, chờ xử lý",
+          },
+        ],
+        images: {
+          before: [
+            "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+          after: [],
+        },
       },
     ],
-    images: {
-      before: [
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-      ],
-      after: [],
-    },
-    notes: "Giao hàng trước 15/12/2024",
+    notes: "Khách hàng VIP, ưu tiên xử lý",
     createdAt: "2024-12-01 08:30:00",
-    updatedAt: "2024-12-02 14:20:00",
+    updatedAt: "2024-12-01 09:00:00",
     statusHistory: [
       {
         id: "h1",
         status: "pending",
         changedBy: "Nguyễn Văn A",
         changedAt: "2024-12-01 08:30:00",
-        notes: "Tạo đơn hàng mới",
+        notes: "Tạo đơn hàng mới - 2 items",
       },
       {
         id: "h2",
         status: "processing",
-        changedBy: "Trần Thị B",
-        changedAt: "2024-12-01 10:00:00",
-        notes: "Bắt đầu sản xuất",
+        changedBy: "Lê Văn C",
+        changedAt: "2024-12-01 09:00:00",
+        notes: "Bắt đầu xử lý item 1: Giày Nike",
       },
     ],
   },
@@ -166,33 +217,68 @@ const mockOrders: Order[] = [
     orderNumber: "DH-2024-002",
     invoiceNumber: "HD-2024-002",
     invoiceDate: "2024-12-02",
-    customer: "Huan",
+    customer: "Trần Văn Hưng",
+    customerPhone: "0912345678",
     status: "completed",
     paymentStatus: "paid",
-    totalAmount: 30000000,
-    paidAmount: 30000000,
+    totalAmount: 800000,
+    paidAmount: 800000,
     invoiceStaff: "Phạm Thị D",
     salesStaff: "Hoàng Văn E",
-    technician: "Vũ Thị F",
-    items: [
+    serviceItems: [
       {
-        id: "3",
-        productName: "Túi xách nữ",
-        quantity: 80,
-        price: 375000,
-        total: 30000000,
+        id: "si3",
+        itemName: "Ví da nam Gucci",
+        itemType: "Ví",
+        serviceType: "Vệ sinh + Dưỡng da",
+        price: 800000,
+        currentStatus: "completed",
+        currentTechnician: "Hoàn thành",
+        workflow: [
+          {
+            stage: "pending",
+            technicianId: "t3",
+            technicianName: "Hoàng Văn E (Sale)",
+            startedAt: "2024-12-02 09:00:00",
+            completedAt: "2024-12-02 10:00:00",
+            notes: "Tiếp nhận, check tình trạng",
+          },
+          {
+            stage: "processing",
+            technicianId: "t4",
+            technicianName: "Vũ Thị F",
+            startedAt: "2024-12-02 10:00:00",
+            completedAt: "2024-12-03 14:00:00",
+            notes: "Vệ sinh sâu, dưỡng da chuyên sâu",
+          },
+          {
+            stage: "quality_check",
+            technicianId: "t5",
+            technicianName: "Nguyễn Văn QC",
+            startedAt: "2024-12-03 14:00:00",
+            completedAt: "2024-12-03 15:00:00",
+            notes: "Kiểm tra chất lượng - Đạt",
+          },
+          {
+            stage: "completed",
+            technicianId: "t3",
+            technicianName: "Hoàng Văn E (Sale)",
+            startedAt: "2024-12-03 15:00:00",
+            completedAt: "2024-12-03 16:45:00",
+            notes: "Đóng gói và giao cho khách",
+          },
+        ],
+        images: {
+          before: [
+            "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+          after: [
+            "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+        },
       },
     ],
-    images: {
-      before: [
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-      ],
-      after: [
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-      ],
-    },
-    notes: "Đã hoàn thành và giao hàng",
+    notes: "Khách hàng hài lòng",
     createdAt: "2024-12-02 09:00:00",
     updatedAt: "2024-12-03 16:45:00",
     statusHistory: [
@@ -201,28 +287,28 @@ const mockOrders: Order[] = [
         status: "pending",
         changedBy: "Phạm Thị D",
         changedAt: "2024-12-02 09:00:00",
-        notes: "Tạo đơn hàng",
+        notes: "Tạo đơn hàng - Ví Gucci",
       },
       {
         id: "h4",
         status: "processing",
-        changedBy: "Hoàng Văn E",
-        changedAt: "2024-12-02 10:30:00",
-        notes: "Bắt đầu sản xuất",
+        changedBy: "Vũ Thị F",
+        changedAt: "2024-12-02 10:00:00",
+        notes: "Vũ Thị F bắt đầu xử lý",
       },
       {
         id: "h5",
         status: "quality_check",
-        changedBy: "Vũ Thị F",
+        changedBy: "Nguyễn Văn QC",
         changedAt: "2024-12-03 14:00:00",
-        notes: "Hoàn thành sản xuất, chuyển kiểm tra chất lượng",
+        notes: "Chuyển QC kiểm tra",
       },
       {
         id: "h6",
         status: "completed",
         changedBy: "Hoàng Văn E",
         changedAt: "2024-12-03 16:45:00",
-        notes: "Đã hoàn thành và giao hàng",
+        notes: "Hoàn thành và giao hàng",
       },
     ],
   },
@@ -231,31 +317,58 @@ const mockOrders: Order[] = [
     orderNumber: "DH-2024-003",
     invoiceNumber: "HD-2024-003",
     invoiceDate: "2024-12-03",
-    customer: "Bình",
+    customer: "Lê Thị Bình",
+    customerPhone: "0923456789",
     status: "quality_check",
     paymentStatus: "unpaid",
-    totalAmount: 75000000,
+    totalAmount: 1200000,
     paidAmount: 0,
     invoiceStaff: "Đỗ Văn G",
     salesStaff: "Bùi Thị H",
-    technician: "Lý Văn I",
-    items: [
+    serviceItems: [
       {
-        id: "4",
-        productName: "Giày da nam",
-        quantity: 150,
-        price: 500000,
-        total: 75000000,
+        id: "si4",
+        itemName: "Giày Adidas Ultraboost",
+        itemType: "Giày",
+        serviceType: "Vệ sinh chuyên sâu + Thay đế",
+        price: 1200000,
+        currentStatus: "quality_check",
+        currentTechnician: "Nguyễn Văn QC",
+        workflow: [
+          {
+            stage: "pending",
+            technicianId: "t6",
+            technicianName: "Bùi Thị H (Sale)",
+            startedAt: "2024-12-03 10:15:00",
+            completedAt: "2024-12-03 10:30:00",
+            notes: "Tiếp nhận, chụp ảnh trước",
+          },
+          {
+            stage: "processing",
+            technicianId: "t7",
+            technicianName: "Lý Văn I",
+            startedAt: "2024-12-03 10:30:00",
+            completedAt: "2024-12-03 11:00:00",
+            notes: "Vệ sinh và thay đế giày",
+          },
+          {
+            stage: "quality_check",
+            technicianId: "t5",
+            technicianName: "Nguyễn Văn QC",
+            startedAt: "2024-12-03 11:00:00",
+            notes: "Đang kiểm tra chất lượng đế mới",
+          },
+        ],
+        images: {
+          before: [
+            "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+          after: [
+            "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+        },
       },
     ],
-    images: {
-      before: [
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-      ],
-      after: [
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-      ],
-    },
     notes: "Đang kiểm tra chất lượng",
     createdAt: "2024-12-03 10:15:00",
     updatedAt: "2024-12-03 11:30:00",
@@ -270,16 +383,16 @@ const mockOrders: Order[] = [
       {
         id: "h8",
         status: "processing",
-        changedBy: "Bùi Thị H",
-        changedAt: "2024-12-03 10:45:00",
-        notes: "Bắt đầu sản xuất",
+        changedBy: "Lý Văn I",
+        changedAt: "2024-12-03 10:30:00",
+        notes: "Lý Văn I bắt đầu xử lý",
       },
       {
         id: "h9",
         status: "quality_check",
-        changedBy: "Lý Văn I",
-        changedAt: "2024-12-03 11:30:00",
-        notes: "Hoàn thành sản xuất, chuyển kiểm tra chất lượng",
+        changedBy: "Nguyễn Văn QC",
+        changedAt: "2024-12-03 11:00:00",
+        notes: "Chuyển QC kiểm tra",
       },
     ],
   },
@@ -288,27 +401,40 @@ const mockOrders: Order[] = [
     orderNumber: "DH-2024-004",
     invoiceNumber: "HD-2024-004",
     invoiceDate: "2024-12-01",
-    customer: "Khách hàng cá nhân",
+    customer: "Nguyễn Thị Mai",
+    customerPhone: "0934567890",
     status: "pending",
     paymentStatus: "unpaid",
-    totalAmount: 15000000,
+    totalAmount: 1500000,
     paidAmount: 0,
     invoiceStaff: "Nguyễn Thị K",
     salesStaff: "Trần Văn L",
-    technician: "Chưa phân công",
-    items: [
+    serviceItems: [
       {
-        id: "5",
-        productName: "Balo da",
-        quantity: 30,
-        price: 500000,
-        total: 15000000,
+        id: "si5",
+        itemName: "Túi Chanel Classic",
+        itemType: "Túi",
+        serviceType: "Vệ sinh + Phục hồi màu da",
+        price: 1500000,
+        currentStatus: "pending",
+        currentTechnician: "Chưa phân công",
+        workflow: [
+          {
+            stage: "pending",
+            technicianId: "t8",
+            technicianName: "Trần Văn L (Sale)",
+            startedAt: "2024-12-01 14:00:00",
+            notes: "Đơn hàng mới, chờ xử lý",
+          },
+        ],
+        images: {
+          before: [
+            "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=300&h=300",
+          ],
+          after: [],
+        },
       },
     ],
-    images: {
-      before: [],
-      after: [],
-    },
     notes: "Đơn hàng mới",
     createdAt: "2024-12-01 14:00:00",
     updatedAt: "2024-12-01 14:00:00",
@@ -319,61 +445,6 @@ const mockOrders: Order[] = [
         changedBy: "Nguyễn Thị K",
         changedAt: "2024-12-01 14:00:00",
         notes: "Tạo đơn hàng mới",
-      },
-    ],
-  },
-  {
-    id: "5",
-    orderNumber: "DH-2024-005",
-    invoiceNumber: "HD-2024-005",
-    invoiceDate: "2024-12-02",
-    customer: "Công ty GHI",
-    status: "processing",
-    paymentStatus: "partial",
-    totalAmount: 90000000,
-    paidAmount: 45000000,
-    invoiceStaff: "Phạm Văn M",
-    salesStaff: "Lê Thị N",
-    technician: "Hoàng Văn O",
-    items: [
-      {
-        id: "6",
-        productName: "Bóp da nữ",
-        quantity: 200,
-        price: 250000,
-        total: 50000000,
-      },
-      {
-        id: "7",
-        productName: "Ví nam da bò",
-        quantity: 100,
-        price: 400000,
-        total: 40000000,
-      },
-    ],
-    images: {
-      before: [
-        "https://images.unsplash.com/photo-1614252369475-531eba835eb1?auto=format&fit=crop&q=80&w=300&h=300",
-      ],
-      after: [],
-    },
-    notes: "Đơn hàng lớn, ưu tiên sản xuất",
-    createdAt: "2024-12-02 11:20:00",
-    updatedAt: "2024-12-03 09:10:00",
-    statusHistory: [
-      {
-        id: "h11",
-        status: "pending",
-        changedBy: "Phạm Văn M",
-        changedAt: "2024-12-02 11:20:00",
-        notes: "Tạo đơn hàng lớn",
-      },
-      {
-        id: "h12",
-        status: "processing",
-        changedBy: "Lê Thị N",
-        changedAt: "2024-12-02 13:00:00",
-        notes: "Bắt đầu sản xuất đơn hàng ưu tiên",
       },
     ],
   },
@@ -454,73 +525,114 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
+  };
+
+  // Get technicians from service items
+  const technicians = order.serviceItems
+    .filter(
+      (item) =>
+        item.currentTechnician &&
+        item.currentTechnician !== "Chưa phân công" &&
+        item.currentTechnician !== "Hoàn thành"
+    )
+    .map((item) => item.currentTechnician);
+  const uniqueTechnicians = [...new Set(technicians)];
+
+  const handleCardClick = () => {
+    // Chỉ trigger onClick nếu không phải đang drag
+    if (!isDragging) {
+      onClick();
+    }
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card
-        size="small"
-        hoverable
-        styles={{ body: { padding: "12px" } }}
-        onClick={onClick}
-        className="cursor-pointer"
-      >
-        <Space vertical size="small" className="w-full">
-          <div className="flex items-center justify-between">
-            <Text strong className="text-sm">
-              {order.orderNumber}
-            </Text>
-            <Space size="small">
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-              />
-              <Button
-                type="text"
-                size="small"
-                icon={<FileTextOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onExportPDF();
-                }}
-              />
-            </Space>
-          </div>
-          <Text className="text-xs text-gray-500">{order.customer}</Text>
-          <div className="flex items-center justify-between">
-            <Text strong className="text-sm">
-              {formatCurrency(order.totalAmount)}
-            </Text>
-            <Tag
-              color={getPaymentStatusColor(order.paymentStatus)}
-              className="text-xs"
-            >
-              {getPaymentStatusText(order.paymentStatus)}
-            </Tag>
-          </div>
-          <div className="flex items-center justify-between">
-            <Space size="small">
-              <TeamOutlined />
-              <Text className="text-xs">{order.salesStaff}</Text>
-            </Space>
-            <Text className="text-xs text-gray-500">
-              {dayjs(order.invoiceDate).format("DD/MM")}
-            </Text>
-          </div>
-          {order.images.before.length > 0 && (
-            <div className="flex gap-1">
-              <FileImageOutlined className="text-blue-500" />
-              <Text className="text-xs">{order.images.before.length} ảnh</Text>
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <div {...listeners} style={{ touchAction: "none" }}>
+        <Card
+          size="small"
+          hoverable
+          styles={{ body: { padding: "12px" } }}
+          onClick={handleCardClick}
+          className="mb-2 hover:shadow-md transition-shadow cursor-pointer"
+        >
+          <Space vertical size="small" className="w-full">
+            <div className="flex items-center justify-between">
+              <Text strong className="text-sm">
+                {order.orderNumber}
+              </Text>
+              <Space size="small">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<FileTextOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExportPDF();
+                  }}
+                />
+              </Space>
             </div>
-          )}
-        </Space>
-      </Card>
+
+            <div className="flex items-center justify-between">
+              <Space size="small">
+                <UserOutlined className="text-gray-400" />
+                <Text className="text-xs text-gray-600">{order.customer}</Text>
+              </Space>
+              <Text className="text-xs text-gray-400">
+                {dayjs(order.invoiceDate).format("DD/MM")}
+              </Text>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Text strong className="text-sm">
+                {formatCurrency(order.totalAmount)}
+              </Text>
+              <Tag
+                color={getPaymentStatusColor(order.paymentStatus)}
+                className="text-xs"
+              >
+                {getPaymentStatusText(order.paymentStatus)}
+              </Tag>
+            </div>
+
+            {order.serviceItems.length > 0 && (
+              <div className="flex items-center justify-between pt-1 border-t">
+                <Space size="small">
+                  <ProjectOutlined className="text-blue-500" />
+                  <Text className="text-xs text-gray-500">
+                    {order.serviceItems.length} dịch vụ
+                  </Text>
+                </Space>
+                {uniqueTechnicians.length > 0 && (
+                  <Avatar.Group maxCount={2} size="small">
+                    {uniqueTechnicians.map((tech, idx) => (
+                      <Avatar
+                        key={idx}
+                        size="small"
+                        style={{
+                          backgroundColor: `hsl(${idx * 137.5}, 70%, 50%)`,
+                        }}
+                      >
+                        {tech.charAt(0)}
+                      </Avatar>
+                    ))}
+                  </Avatar.Group>
+                )}
+              </div>
+            )}
+          </Space>
+        </Card>
+      </div>
     </div>
   );
 };
@@ -560,25 +672,44 @@ const DroppableColumn: React.FC<DroppableColumnProps> = ({
           </Space>
         }
         styles={{
-          body: { padding: "12px", maxHeight: "70vh", overflowY: "auto" },
+          body: {
+            padding: "8px",
+            height: "calc(100vh - 280px)",
+            overflow: "hidden",
+          },
         }}
+        className="shadow-sm"
       >
-        <div ref={setNodeRef} style={{ minHeight: "200px" }}>
+        <div
+          ref={setNodeRef}
+          style={{
+            height: "100%",
+            overflowY: "auto",
+            overflowX: "hidden",
+            paddingRight: "4px",
+          }}
+          className="scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+        >
           <SortableContext
             items={orders.map((o) => o.id)}
             strategy={verticalListSortingStrategy}
           >
-            <Space vertical size="small" className="w-full">
-              {orders.map((order) => (
-                <KanbanCard
-                  key={order.id}
-                  order={order}
-                  onClick={() => onCardClick(order)}
-                  onEdit={() => onEdit(order)}
-                  onExportPDF={() => onExportPDF(order)}
-                />
-              ))}
-            </Space>
+            {orders.map((order) => (
+              <KanbanCard
+                key={order.id}
+                order={order}
+                onClick={() => onCardClick(order)}
+                onEdit={() => onEdit(order)}
+                onExportPDF={() => onExportPDF(order)}
+              />
+            ))}
+            {orders.length === 0 && (
+              <div className="flex items-center justify-center h-32 text-gray-400">
+                <Text type="secondary" className="text-xs">
+                  Không có đơn hàng
+                </Text>
+              </div>
+            )}
           </SortableContext>
         </div>
       </Card>
@@ -638,102 +769,143 @@ const OrderDetailDrawer: React.FC<PropRowDetails<Order>> = ({ data }) => {
             {data.salesStaff}
           </Space>
         </Descriptions.Item>
-        <Descriptions.Item label="Kỹ thuật viên">
-          <Space>
-            <Avatar size="small" icon={<UserOutlined />} />
-            {data.technician}
-          </Space>
-        </Descriptions.Item>
       </Descriptions>
 
       <div>
-        <Title level={5}>Chi tiết sản phẩm</Title>
-        <Table
-          dataSource={data.items}
-          pagination={false}
-          size="small"
-          columns={[
-            { title: "Sản phẩm", dataIndex: "productName", key: "productName" },
-            {
-              title: "SL",
-              dataIndex: "quantity",
-              key: "quantity",
-              align: "center",
-              width: 80,
-            },
-            {
-              title: "Đơn giá",
-              dataIndex: "price",
-              key: "price",
-              align: "right",
-              render: (price: number) => formatCurrency(price),
-            },
-            {
-              title: "Thành tiền",
-              dataIndex: "total",
-              key: "total",
-              align: "right",
-              render: (total: number) => (
-                <Text strong>{formatCurrency(total)}</Text>
-              ),
-            },
-          ]}
-        />
-      </div>
+        <Title level={5}>Danh sách dịch vụ</Title>
+        {data.serviceItems.map((item) => (
+          <Card key={item.id} size="small" className="mb-3">
+            <Space vertical size="middle" className="w-full">
+              <div className="flex items-start justify-between">
+                <Space vertical size="small">
+                  <Text strong className="text-base">
+                    {item.itemName}
+                  </Text>
+                  <Space size="small">
+                    <Tag color="blue">{item.itemType}</Tag>
+                    <Tag color="green">{item.serviceType}</Tag>
+                  </Space>
+                  <Text strong className="text-lg" style={{ color: "#d4380d" }}>
+                    {formatCurrency(item.price)}
+                  </Text>
+                </Space>
+                <Tag
+                  color={getStatusColor(item.currentStatus)}
+                  className="text-sm"
+                >
+                  {getStatusText(item.currentStatus)}
+                </Tag>
+              </div>
 
-      {(data.images.before.length > 0 || data.images.after.length > 0) && (
-        <div>
-          <Title level={5}>Hình ảnh đính kèm</Title>
-          <Row gutter={[8, 8]}>
-            {data.images.before.length > 0 && (
-              <Col span={24}>
-                <Text strong className="text-sm">
-                  Hình ảnh trước sản xuất:
-                </Text>
-                <div className="mt-2">
-                  <Image.PreviewGroup>
-                    <Space wrap>
-                      {data.images.before.map((img, idx) => (
-                        <Image
-                          key={idx}
-                          width={100}
-                          height={80}
-                          src={img}
-                          alt={`Before ${idx + 1}`}
-                          style={{ objectFit: "cover" }}
-                        />
-                      ))}
-                    </Space>
-                  </Image.PreviewGroup>
+              {item.notes && (
+                <div className="p-2 bg-gray-50 rounded">
+                  <Text className="text-xs italic">{item.notes}</Text>
                 </div>
-              </Col>
-            )}
-            {data.images.after.length > 0 && (
-              <Col span={24}>
+              )}
+
+              <div>
                 <Text strong className="text-sm">
-                  Hình ảnh sau sản xuất:
+                  Tiến độ công việc:
                 </Text>
-                <div className="mt-2">
-                  <Image.PreviewGroup>
-                    <Space wrap>
-                      {data.images.after.map((img, idx) => (
-                        <Image
-                          key={idx}
-                          width={100}
-                          height={80}
-                          src={img}
-                          alt={`After ${idx + 1}`}
-                          style={{ objectFit: "cover" }}
-                        />
-                      ))}
-                    </Space>
-                  </Image.PreviewGroup>
+                <Timeline
+                  className="mt-2"
+                  items={item.workflow.map((stage) => ({
+                    color: getStatusColor(stage.stage),
+                    dot: stage.completedAt ? (
+                      <CheckCircleOutlined />
+                    ) : (
+                      <ClockCircleOutlined />
+                    ),
+                    children: (
+                      <Space vertical size="small">
+                        <Space>
+                          <Text strong>{getStatusText(stage.stage)}</Text>
+                          <Tag color="cyan">{stage.technicianName}</Tag>
+                        </Space>
+                        <Text className="text-xs text-gray-500">
+                          Bắt đầu:{" "}
+                          {dayjs(stage.startedAt).format("DD/MM/YYYY HH:mm")}
+                          {stage.completedAt && (
+                            <>
+                              {" "}
+                              - Hoàn thành:{" "}
+                              {dayjs(stage.completedAt).format(
+                                "DD/MM/YYYY HH:mm"
+                              )}
+                            </>
+                          )}
+                        </Text>
+                        {stage.notes && (
+                          <Text className="text-xs">{stage.notes}</Text>
+                        )}
+                      </Space>
+                    ),
+                  }))}
+                />
+              </div>
+
+              {(item.images.before.length > 0 ||
+                item.images.after.length > 0) && (
+                <div>
+                  <Text strong className="text-sm">
+                    Hình ảnh:
+                  </Text>
+                  <Row gutter={[8, 8]} className="mt-2">
+                    {item.images.before.length > 0 && (
+                      <Col span={12}>
+                        <Text className="text-xs text-gray-500">Trước:</Text>
+                        <div className="mt-1">
+                          <Image.PreviewGroup>
+                            <Space wrap size="small">
+                              {item.images.before.map((img, idx) => (
+                                <Image
+                                  key={idx}
+                                  width={80}
+                                  height={60}
+                                  src={img}
+                                  alt={`Before ${idx + 1}`}
+                                  style={{
+                                    objectFit: "cover",
+                                    borderRadius: "4px",
+                                  }}
+                                />
+                              ))}
+                            </Space>
+                          </Image.PreviewGroup>
+                        </div>
+                      </Col>
+                    )}
+                    {item.images.after.length > 0 && (
+                      <Col span={12}>
+                        <Text className="text-xs text-gray-500">Sau:</Text>
+                        <div className="mt-1">
+                          <Image.PreviewGroup>
+                            <Space wrap size="small">
+                              {item.images.after.map((img, idx) => (
+                                <Image
+                                  key={idx}
+                                  width={80}
+                                  height={60}
+                                  src={img}
+                                  alt={`After ${idx + 1}`}
+                                  style={{
+                                    objectFit: "cover",
+                                    borderRadius: "4px",
+                                  }}
+                                />
+                              ))}
+                            </Space>
+                          </Image.PreviewGroup>
+                        </div>
+                      </Col>
+                    )}
+                  </Row>
                 </div>
-              </Col>
-            )}
-          </Row>
-        </div>
-      )}
+              )}
+            </Space>
+          </Card>
+        ))}
+      </div>
 
       {data.notes && (
         <div>
@@ -764,11 +936,14 @@ export default function OrdersPage() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5,
+        delay: 0,
+        tolerance: 5,
       },
     })
   );
@@ -784,8 +959,14 @@ export default function OrdersPage() {
 
   const filteredOrders = applyFilter(orders);
 
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
   // Handle drag end
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = event;
 
     if (!over) return;
@@ -890,32 +1071,32 @@ export default function OrdersPage() {
 
           <div class="info">
             <p><strong>Khách hàng:</strong> ${order.customer}</p>
+            <p><strong>SĐT:</strong> ${order.customerPhone}</p>
             <p><strong>Ngày tạo:</strong> ${dayjs(order.createdAt).format(
               "DD/MM/YYYY HH:mm"
             )}</p>
             <p><strong>Trạng thái:</strong> ${getStatusText(order.status)}</p>
             <p><strong>NV Sale:</strong> ${order.salesStaff}</p>
-            <p><strong>Kỹ thuật viên:</strong> ${order.technician}</p>
           </div>
 
           <table>
             <thead>
               <tr>
+                <th>Dịch vụ</th>
                 <th>Sản phẩm</th>
-                <th>SL</th>
-                <th>Đơn giá</th>
-                <th>Thành tiền</th>
+                <th>Loại</th>
+                <th>Giá</th>
               </tr>
             </thead>
             <tbody>
-              ${order.items
+              ${order.serviceItems
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.productName}</td>
-                  <td>${item.quantity}</td>
+                  <td>${item.serviceType}</td>
+                  <td>${item.itemName}</td>
+                  <td>${item.itemType}</td>
                   <td>${formatCurrency(item.price)}</td>
-                  <td>${formatCurrency(item.total)}</td>
                 </tr>
               `
                 )
@@ -1078,8 +1259,15 @@ export default function OrdersPage() {
       completed: filteredOrders.filter((o) => o.status === "completed"),
     };
 
+    const activeOrder = activeId ? orders.find((o) => o.id === activeId) : null;
+
     return (
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
         <Row gutter={[16, 16]}>
           <DroppableColumn
             id="pending"
@@ -1118,6 +1306,52 @@ export default function OrdersPage() {
             onExportPDF={handleExportPDF}
           />
         </Row>
+        <DragOverlay
+          dropAnimation={{
+            duration: 200,
+            easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+          }}
+        >
+          {activeOrder ? (
+            <Card
+              size="small"
+              styles={{ body: { padding: "12px", marginBottom: "8px" } }}
+              className="shadow-2xl rotate-2 scale-105 opacity-95"
+              style={{ width: "280px", marginBottom: "8px" }}
+            >
+              <Space vertical size="small" className="w-full">
+                <div className="flex items-center justify-between">
+                  <Text strong className="text-sm">
+                    {activeOrder.orderNumber}
+                  </Text>
+                  <Tag
+                    color={getStatusColor(activeOrder.status)}
+                    className="text-xs"
+                  >
+                    {getStatusText(activeOrder.status)}
+                  </Tag>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UserOutlined className="text-gray-400 text-xs" />
+                  <Text className="text-xs text-gray-600">
+                    {activeOrder.customer}
+                  </Text>
+                </div>
+                <Text strong className="text-sm" style={{ color: "#1890ff" }}>
+                  {formatCurrency(activeOrder.totalAmount)}
+                </Text>
+                {activeOrder.serviceItems.length > 0 && (
+                  <div className="flex items-center gap-1 pt-1 border-t">
+                    <ProjectOutlined className="text-blue-500 text-xs" />
+                    <Text className="text-xs text-gray-500">
+                      {activeOrder.serviceItems.length} dịch vụ
+                    </Text>
+                  </div>
+                )}
+              </Space>
+            </Card>
+          ) : null}
+        </DragOverlay>
       </DndContext>
     );
   };
@@ -1425,107 +1659,159 @@ const OrderDetailModal: React.FC<{
                       {order.salesStaff}
                     </Space>
                   </Descriptions.Item>
-                  <Descriptions.Item label="Kỹ thuật viên">
-                    <Space>
-                      <Avatar size="small" icon={<UserOutlined />} />
-                      {order.technician}
-                    </Space>
-                  </Descriptions.Item>
                 </Descriptions>
 
                 <div>
-                  <Title level={5}>Chi tiết sản phẩm</Title>
-                  <Table
-                    dataSource={order.items}
-                    pagination={false}
-                    size="small"
-                    columns={[
-                      {
-                        title: "Sản phẩm",
-                        dataIndex: "productName",
-                        key: "productName",
-                      },
-                      {
-                        title: "SL",
-                        dataIndex: "quantity",
-                        key: "quantity",
-                        align: "center" as const,
-                        width: 80,
-                      },
-                      {
-                        title: "Đơn giá",
-                        dataIndex: "price",
-                        key: "price",
-                        align: "right" as const,
-                        render: (price: number) => formatCurrency(price),
-                      },
-                      {
-                        title: "Thành tiền",
-                        dataIndex: "total",
-                        key: "total",
-                        align: "right" as const,
-                        render: (total: number) => (
-                          <Text strong>{formatCurrency(total)}</Text>
-                        ),
-                      },
-                    ]}
-                  />
-                </div>
+                  <Title level={5}>Danh sách dịch vụ</Title>
+                  {order.serviceItems.map((item) => (
+                    <Card key={item.id} size="small" className="mb-3">
+                      <Space vertical size="middle" className="w-full">
+                        <div className="flex items-start justify-between">
+                          <Space vertical size="small">
+                            <Text strong className="text-base">
+                              {item.itemName}
+                            </Text>
+                            <Space size="small">
+                              <Tag color="blue">{item.itemType}</Tag>
+                              <Tag color="green">{item.serviceType}</Tag>
+                            </Space>
+                            <Text
+                              strong
+                              className="text-lg"
+                              style={{ color: "#d4380d" }}
+                            >
+                              {formatCurrency(item.price)}
+                            </Text>
+                          </Space>
+                          <Tag
+                            color={getStatusColor(item.currentStatus)}
+                            className="text-sm"
+                          >
+                            {getStatusText(item.currentStatus)}
+                          </Tag>
+                        </div>
 
-                {(order.images.before.length > 0 ||
-                  order.images.after.length > 0) && (
-                  <div>
-                    <Title level={5}>Hình ảnh đính kèm</Title>
-                    <Row gutter={[8, 8]}>
-                      {order.images.before.length > 0 && (
-                        <Col span={24}>
-                          <Text strong className="text-sm">
-                            Hình ảnh trước sản xuất:
-                          </Text>
-                          <div className="mt-2">
-                            <Image.PreviewGroup>
-                              <Space wrap>
-                                {order.images.before.map((img, idx) => (
-                                  <Image
-                                    key={idx}
-                                    width={100}
-                                    height={80}
-                                    src={img}
-                                    alt={`Before ${idx + 1}`}
-                                    style={{ objectFit: "cover" }}
-                                  />
-                                ))}
-                              </Space>
-                            </Image.PreviewGroup>
+                        {item.notes && (
+                          <div className="p-2 bg-gray-50 rounded">
+                            <Text className="text-xs italic">{item.notes}</Text>
                           </div>
-                        </Col>
-                      )}
-                      {order.images.after.length > 0 && (
-                        <Col span={24}>
+                        )}
+
+                        <div>
                           <Text strong className="text-sm">
-                            Hình ảnh sau sản xuất:
+                            Tiến độ công việc:
                           </Text>
-                          <div className="mt-2">
-                            <Image.PreviewGroup>
-                              <Space wrap>
-                                {order.images.after.map((img, idx) => (
-                                  <Image
-                                    key={idx}
-                                    width={100}
-                                    height={80}
-                                    src={img}
-                                    alt={`After ${idx + 1}`}
-                                    style={{ objectFit: "cover" }}
-                                  />
-                                ))}
-                              </Space>
-                            </Image.PreviewGroup>
+                          <Timeline
+                            className="mt-2"
+                            items={item.workflow.map((stage) => ({
+                              color: getStatusColor(stage.stage),
+                              dot: stage.completedAt ? (
+                                <CheckCircleOutlined />
+                              ) : (
+                                <ClockCircleOutlined />
+                              ),
+                              children: (
+                                <Space vertical size="small">
+                                  <Space>
+                                    <Text strong>
+                                      {getStatusText(stage.stage)}
+                                    </Text>
+                                    <Tag color="cyan">
+                                      {stage.technicianName}
+                                    </Tag>
+                                  </Space>
+                                  <Text className="text-xs text-gray-500">
+                                    Bắt đầu:{" "}
+                                    {dayjs(stage.startedAt).format(
+                                      "DD/MM/YYYY HH:mm"
+                                    )}
+                                    {stage.completedAt && (
+                                      <>
+                                        {" "}
+                                        - Hoàn thành:{" "}
+                                        {dayjs(stage.completedAt).format(
+                                          "DD/MM/YYYY HH:mm"
+                                        )}
+                                      </>
+                                    )}
+                                  </Text>
+                                  {stage.notes && (
+                                    <Text className="text-xs">
+                                      {stage.notes}
+                                    </Text>
+                                  )}
+                                </Space>
+                              ),
+                            }))}
+                          />
+                        </div>
+
+                        {(item.images.before.length > 0 ||
+                          item.images.after.length > 0) && (
+                          <div>
+                            <Text strong className="text-sm">
+                              Hình ảnh:
+                            </Text>
+                            <Row gutter={[8, 8]} className="mt-2">
+                              {item.images.before.length > 0 && (
+                                <Col span={12}>
+                                  <Text className="text-xs text-gray-500">
+                                    Trước:
+                                  </Text>
+                                  <div className="mt-1">
+                                    <Image.PreviewGroup>
+                                      <Space wrap size="small">
+                                        {item.images.before.map((img, idx) => (
+                                          <Image
+                                            key={idx}
+                                            width={80}
+                                            height={60}
+                                            src={img}
+                                            alt={`Before ${idx + 1}`}
+                                            style={{
+                                              objectFit: "cover",
+                                              borderRadius: "4px",
+                                            }}
+                                          />
+                                        ))}
+                                      </Space>
+                                    </Image.PreviewGroup>
+                                  </div>
+                                </Col>
+                              )}
+                              {item.images.after.length > 0 && (
+                                <Col span={12}>
+                                  <Text className="text-xs text-gray-500">
+                                    Sau:
+                                  </Text>
+                                  <div className="mt-1">
+                                    <Image.PreviewGroup>
+                                      <Space wrap size="small">
+                                        {item.images.after.map((img, idx) => (
+                                          <Image
+                                            key={idx}
+                                            width={80}
+                                            height={60}
+                                            src={img}
+                                            alt={`After ${idx + 1}`}
+                                            style={{
+                                              objectFit: "cover",
+                                              borderRadius: "4px",
+                                            }}
+                                          />
+                                        ))}
+                                      </Space>
+                                    </Image.PreviewGroup>
+                                  </div>
+                                </Col>
+                              )}
+                            </Row>
                           </div>
-                        </Col>
-                      )}
-                    </Row>
-                  </div>
-                )}
+                        )}
+                      </Space>
+                    </Card>
+                  ))}
+                </div>
 
                 {order.notes && (
                   <div>
@@ -1587,7 +1873,6 @@ const EditOrderModal: React.FC<{
     if (order) {
       form.setFieldsValue({
         salesStaff: order.salesStaff,
-        technician: order.technician,
         notes: order.notes,
       });
     }
@@ -1610,13 +1895,6 @@ const EditOrderModal: React.FC<{
           name="salesStaff"
           label="NV Sale"
           rules={[{ required: true, message: "Vui lòng nhập NV Sale" }]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="technician"
-          label="Kỹ thuật viên"
-          rules={[{ required: true, message: "Vui lòng nhập kỹ thuật viên" }]}
         >
           <Input />
         </Form.Item>

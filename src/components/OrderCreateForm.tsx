@@ -80,7 +80,7 @@ export default function OrderCreateForm() {
   return (
     <Form
       form={form}
-      layout="vertical "
+      layout="vertical"
       onFinish={onFinish}
       initialValues={{
         items: [{ productName: "", quantity: 1, unitPrice: 0, notes: "" }],
