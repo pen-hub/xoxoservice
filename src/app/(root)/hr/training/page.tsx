@@ -410,7 +410,6 @@ export default function TrainingPage() {
 
   return (
     <WrapperContent
-      title="Đào tạo nhân sự"
       header={{
         searchInput: {
           placeholder: "Tìm kiếm theo tên khóa học, giảng viên",

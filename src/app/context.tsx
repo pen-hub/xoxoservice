@@ -1,13 +1,13 @@
+import { FirebaseClientProvider } from "@/firebase";
 import { AppThemeProvider } from "@/providers/AppThemeProvider";
-import ReactQueryProvider from "@/providers/ReactQueryProvider";
 import React from "react";
 
 const AppContext = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
-      <ReactQueryProvider>
+      <FirebaseClientProvider>
         <AppThemeProvider>{children}</AppThemeProvider>
-      </ReactQueryProvider>
+      </FirebaseClientProvider>
     </>
   );
 };

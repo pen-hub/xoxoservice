@@ -1,0 +1,289 @@
+{
+  "workflows": {
+    "-O1a2b3c4d5e6f7g8h9i": {
+      "name": "Cắt vải",
+      "defaultEmployees": ["-O1e2f3g4h5i6j7k8l9m", "-O1e2f3g4h5i6j7k8l9n"],
+      "createdAt": 1733392100000,
+      "order": 0
+    },
+    "-O1a2b3c4d5e6f7g8h9j": {
+      "name": "May",
+      "defaultEmployees": ["-O1e2f3g4h5i6j7k8l9m"],
+      "createdAt": 1733392110000,
+      "order": 1
+    },
+    "-O1a2b3c4d5e6f7g8h9k": {
+      "name": "Là ủi",
+      "defaultEmployees": ["-O1e2f3g4h5i6j7k8l9o"],
+      "createdAt": 1733392120000,
+      "order": 2
+    },
+    "-O1a2b3c4d5e6f7g8h9l": {
+      "name": "Kiểm tra chất lượng",
+      "defaultEmployees": ["-O1e2f3g4h5i6j7k8l9p"],
+      "createdAt": 1733392130000,
+      "order": 3
+    },
+    "-O1a2b3c4d5e6f7g8h9m": {
+      "name": "Đóng gói",
+      "defaultEmployees": ["-O1e2f3g4h5i6j7k8l9q"],
+      "createdAt": 1733392140000,
+      "order": 4
+    }
+  },
+  "employees": {
+    "-O1e2f3g4h5i6j7k8l9m": {
+      "name": "Nguyễn Văn A",
+      "role": "worker",
+      "createdAt": 1733392000000
+    },
+    "-O1e2f3g4h5i6j7k8l9n": {
+      "name": "Trần Thị B",
+      "role": "worker",
+      "createdAt": 1733392010000
+    },
+    "-O1e2f3g4h5i6j7k8l9o": {
+      "name": "Lê Văn C",
+      "role": "worker",
+      "createdAt": 1733392020000
+    },
+    "-O1e2f3g4h5i6j7k8l9p": {
+      "name": "Phạm Thị D",
+      "role": "worker",
+      "createdAt": 1733392030000
+    },
+    "-O1e2f3g4h5i6j7k8l9q": {
+      "name": "Hoàng Văn E",
+      "role": "worker",
+      "createdAt": 1733392040000
+    },
+    "-O1e2f3g4h5i6j7k8l9r": {
+      "name": "Võ Thị F",
+      "role": "sale",
+      "createdAt": 1733392050000
+    },
+    "-O1e2f3g4h5i6j7k8l9s": {
+      "name": "Đặng Văn G",
+      "role": "manager",
+      "createdAt": 1733392060000
+    }
+  },
+  "orders": {
+    "-O1o2r3d4e5r6s7a8m9p": {
+      "code": "ORD20241205001",
+      "customerName": "Công ty TNHH ABC",
+      "customerPhone": "0912345678",
+      "customerAddress": "123 Đường Lê Lợi, Quận 1, TP.HCM",
+      "createdBy": "-O1e2f3g4h5i6j7k8l9r",
+      "createdAt": 1733392300000,
+      "updatedAt": 1733392300000,
+      "status": "active",
+      "notes": "Đơn hàng VIP, ưu tiên xử lý",
+      "products": {
+        "-P1r2o3d4u5c6t7i8d9a": {
+          "name": "Áo thun nữ size M - Màu trắng",
+          "quantity": 100,
+          "price": 150000,
+          "createdAt": 1733392300000,
+          "steps": {
+            "step1": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9i",
+              "name": "Cắt vải",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9m": true,
+                "-O1e2f3g4h5i6j7k8l9n": true
+              },
+              "status": "completed",
+              "completedQuantity": 100,
+              "updatedAt": 1733392500000,
+              "order": 0
+            },
+            "step2": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9j",
+              "name": "May",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9m": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 65,
+              "updatedAt": 1733392800000,
+              "order": 1
+            },
+            "step3": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9k",
+              "name": "Là ủi",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9o": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 2
+            },
+            "step4": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9l",
+              "name": "Kiểm tra chất lượng",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9p": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 3
+            },
+            "step5": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9m",
+              "name": "Đóng gói",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9q": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 4
+            }
+          }
+        },
+        "-P1r2o3d4u5c6t7i8d9b": {
+          "name": "Quần jeans nam size 32",
+          "quantity": 50,
+          "price": 350000,
+          "createdAt": 1733392300000,
+          "steps": {
+            "step1": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9i",
+              "name": "Cắt vải",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9m": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 30,
+              "updatedAt": 1733392600000,
+              "order": 0
+            },
+            "step2": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9j",
+              "name": "May",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9m": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 1
+            },
+            "step3": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9k",
+              "name": "Là ủi",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9o": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 2
+            },
+            "step4": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9l",
+              "name": "Kiểm tra chất lượng",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9p": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 3
+            },
+            "step5": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9m",
+              "name": "Đóng gói",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9q": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733392300000,
+              "order": 4
+            }
+          }
+        }
+      }
+    },
+    "-O1o2r3d4e5r6s7a8m9q": {
+      "code": "ORD20241205002",
+      "customerName": "Nguyễn Thị Linh",
+      "customerPhone": "0987654321",
+      "customerAddress": "456 Đường Nguyễn Huệ, Quận 3, TP.HCM",
+      "createdBy": "-O1e2f3g4h5i6j7k8l9r",
+      "createdAt": 1733393000000,
+      "updatedAt": 1733393000000,
+      "status": "active",
+      "notes": "Giao hàng trước 20/12",
+      "products": {
+        "-P1r2o3d4u5c6t7i8d9c": {
+          "name": "Váy công sở size S",
+          "quantity": 30,
+          "price": 450000,
+          "createdAt": 1733393000000,
+          "steps": {
+            "step1": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9i",
+              "name": "Cắt vải",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9n": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733393000000,
+              "order": 0
+            },
+            "step2": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9j",
+              "name": "May",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9m": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733393000000,
+              "order": 1
+            },
+            "step3": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9k",
+              "name": "Là ủi",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9o": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733393000000,
+              "order": 2
+            },
+            "step4": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9l",
+              "name": "Kiểm tra chất lượng",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9p": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733393000000,
+              "order": 3
+            },
+            "step5": {
+              "workflowId": "-O1a2b3c4d5e6f7g8h9m",
+              "name": "Đóng gói",
+              "employees": {
+                "-O1e2f3g4h5i6j7k8l9q": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1733393000000,
+              "order": 4
+            }
+          }
+        }
+      }
+    }
+  }
+}

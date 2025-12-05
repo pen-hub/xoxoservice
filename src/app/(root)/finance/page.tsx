@@ -636,7 +636,6 @@ export default function FinancePage() {
 
   return (
     <WrapperContent
-      title="Quản lý Thu Chi"
       header={{
         searchInput: {
           placeholder: "Tìm kiếm giao dịch...",

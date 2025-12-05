@@ -10,7 +10,6 @@ import {
   useWindowBreakpoint,
 } from "@/hooks/useWindowBreakPoint";
 import { ColumnSetting, FilterField } from "@/types";
-import { queriesToInvalidate } from "@/utils/refetchData";
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
@@ -32,7 +31,7 @@ import {
 } from "antd";
 import debounce from "lodash/debounce";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 
 interface LeftControlsProps {
   isMobile: boolean;
@@ -259,7 +258,7 @@ interface RightControlsProps {
   hasActiveFilters: boolean;
   hasActiveColumnSettings: boolean;
   setIsMobileOptionsOpen: (value: boolean) => void;
-  queriesToInvalidate: (keys: string[] | readonly string[]) => void;
+  queriesToInvalidate?: (keys: string[] | readonly string[]) => void;
 }
 
 const RightControls: React.FC<RightControlsProps> = ({
@@ -291,9 +290,9 @@ const RightControls: React.FC<RightControlsProps> = ({
                 type="default"
                 icon={<SyncOutlined spin={isLoading} />}
                 onClick={() => {
-                  if (header.refetchDataWithKeys) {
-                    queriesToInvalidate(header.refetchDataWithKeys);
-                  }
+                  // if (header.refetchDataWithKeys) {
+                  //   queriesToInvalidate(header.refetchDataWithKeys);
+                  // }
                 }}
               />
             </span>
@@ -360,7 +359,7 @@ const RightControls: React.FC<RightControlsProps> = ({
               icon={<SyncOutlined spin={isLoading || isRefetching} />}
               onClick={() => {
                 if (header.refetchDataWithKeys) {
-                  queriesToInvalidate(header.refetchDataWithKeys);
+                  // queriesToInvalidate(header.refetchDataWithKeys);
                 }
               }}
             />
@@ -446,7 +445,7 @@ function WrapperContent<T extends object>({
   const router = useRouter();
   const [formFilter] = Form.useForm();
 
-  // useSetTitlePage(title || "");
+  useSetTitlePage(title || "");
   // desktop filter visibility is controlled by toggle button
   const [isOpenColumnSettings, setIsOpenColumnSettings] = useState(false);
   const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
@@ -543,7 +542,6 @@ function WrapperContent<T extends object>({
           hasActiveFilters={hasActiveFilters}
           hasActiveColumnSettings={hasActiveColumnSettings}
           setIsMobileOptionsOpen={setIsMobileOptionsOpen}
-          queriesToInvalidate={queriesToInvalidate}
         />
       </div>
 
@@ -639,18 +637,26 @@ function WrapperContent<T extends object>({
           )}
         </div>
       </Modal>
-      {isNotAccessible && !isLoading && <AccessDenied />}
-      {isEmpty && !isNotAccessible && !isLoading && !isRefetching && (
-        <div className="flex min-h-[400px] items-center justify-center">
-          <Empty description="Không có dữ liệu" />
-        </div>
-      )}
-      {isLoading && !isRefetching && (
-        <div className="flex min-h-[400px] items-center justify-center">
-          <LoaderApp />
-        </div>
-      )}
-      {!isLoading && !isNotAccessible && !isEmpty && children}
+      <Suspense
+        fallback={
+          <div className="flex min-h-[400px] items-center justify-center">
+            <LoaderApp />
+          </div>
+        }
+      >
+        {isNotAccessible && !isLoading && <AccessDenied />}
+        {isEmpty && !isNotAccessible && !isLoading && !isRefetching && (
+          <div className="flex min-h-[400px] items-center justify-center">
+            <Empty description="Không có dữ liệu" />
+          </div>
+        )}
+        {isLoading && !isRefetching && (
+          <div className="flex min-h-[400px] items-center justify-center">
+            <LoaderApp />
+          </div>
+        )}
+        {!isLoading && !isNotAccessible && !isEmpty && children}
+      </Suspense>
     </div>
   );
 }

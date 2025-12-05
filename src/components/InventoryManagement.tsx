@@ -576,7 +576,6 @@ export default function InventoryManagement() {
 
   return (
     <WrapperContent
-      title="Quản lý Kho Vật liệu"
       header={{
         searchInput: {
           placeholder: "Tìm kiếm vật liệu...",

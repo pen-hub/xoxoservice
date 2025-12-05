@@ -1,0 +1,43 @@
+{
+  "rules": {
+    "xoxo": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+
+      "orders": {
+        "$orderId": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+
+          "products": {
+            "$productId": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+
+              "stages": {
+                "$stageId": {
+                  ".read": "auth != null",
+                  ".write": "auth != null"
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "stages": {
+        "$stageId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      },
+
+      "staff": {
+        "$staffId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+}

@@ -1464,7 +1464,6 @@ export default function ProductTrackingPage() {
 
   return (
     <WrapperContent
-      title="Theo Dõi Sản Phẩm"
       header={{
         searchInput: {
           placeholder: "Tìm kiếm đơn hàng, khách hàng, sản phẩm...",

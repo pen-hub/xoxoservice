@@ -472,7 +472,6 @@ export default function RecruitmentPage() {
 
   return (
     <WrapperContent
-      title="Tuyển dụng"
       header={{
         searchInput: {
           placeholder: "Tìm kiếm theo tên, SĐT, email",

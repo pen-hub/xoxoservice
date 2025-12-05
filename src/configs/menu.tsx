@@ -1,8 +1,9 @@
 import {
   DashboardOutlined,
   DollarOutlined,
+  ShopOutlined,
   TeamOutlined,
-  UserOutlined
+  UserOutlined,
 } from "@ant-design/icons";
 
 export const allMenuItems: Array<{
@@ -58,28 +59,33 @@ export const allMenuItems: Array<{
       },
     ],
   },
-  // {
-  //   title: "Vận hành & Dịch vụ",
-  //   prefix: "",
-  //   Icon: ShopOutlined,
-  //   children: [
-  //     {
-  //       title: "Kanban dịch vụ",
-  //       href: "/kanban",
-  //       noPrefix: true,
-  //     },
-  //     {
-  //       title: "Theo dõi hàng hóa",
-  //       href: "/product-tracking",
-  //       noPrefix: true,
-  //     },
-  //     {
-  //       title: "Quản lý kho",
-  //       href: "/inventory",
-  //       noPrefix: true,
-  //     },
-  //   ],
-  // },
+  {
+    title: "Vận hành & Sản xuất",
+    prefix: "",
+    Icon: ShopOutlined,
+    children: [
+      {
+        title: "Quản lý sản xuất",
+        href: "/workflow-management",
+        noPrefix: true,
+      },
+      {
+        title: "Kanban dịch vụ",
+        href: "/kanban",
+        noPrefix: true,
+      },
+      {
+        title: "Theo dõi hàng hóa",
+        href: "/product-tracking",
+        noPrefix: true,
+      },
+      {
+        title: "Quản lý kho",
+        href: "/inventory",
+        noPrefix: true,
+      },
+    ],
+  },
   {
     title: "Tài chính",
     prefix: "Quản lý",
@@ -151,5 +157,7 @@ function generateBreadcrumbMap(
   return map;
 }
 
-export const breadcrumbMap: Record<string, string> =
-  generateBreadcrumbMap(allMenuItems);
+export const breadcrumbMap: Record<string, string> ={
+  ...generateBreadcrumbMap(allMenuItems),
+}
+

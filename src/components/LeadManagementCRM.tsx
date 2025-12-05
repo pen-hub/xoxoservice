@@ -775,7 +775,6 @@ export default function LeadManagementCRM() {
 
   return (
     <WrapperContent
-      title="Quản lý Lead CRM"
       isLoading={false}
       isRefetching={false}
       header={{

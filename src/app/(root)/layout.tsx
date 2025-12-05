@@ -2,13 +2,12 @@
 
 import LoaderApp from "@/components/LoaderApp";
 import { allMenuItems, breadcrumbMap } from "@/configs/menu";
+import { useAuth, useUser } from "@/firebase/provider";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTheme } from "@/providers/AppThemeProvider";
-import { queryClient } from "@/providers/ReactQueryProvider";
 import { useSiteTitleStore } from "@/stores/setSiteTitle";
 import {
   DashboardOutlined,
-  DoubleRightOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -26,6 +25,7 @@ import {
   Typography,
   theme,
 } from "antd";
+import { signOut } from "firebase/auth";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -34,11 +34,11 @@ import { useEffect, useState } from "react";
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-interface User {
-  id: number;
-  username: string;
-  fullName: string;
-  roleCode: string;
+interface FirebaseUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
 }
 
 export default function DashboardLayout({
@@ -53,36 +53,29 @@ export default function DashboardLayout({
   const { token } = theme.useToken();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isMobile = useIsMobile();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    queryClient.resetQueries();
-    router.push("/login");
-  };
-
-  const loading = false;
-
-  // If not authenticated, redirect to login
-
-  const user: User | null = {
-    id: 1,
-    username: "admin",
-    fullName: "admin",
-    roleCode: "admin",
-  };
-
+  // All other hooks must be called before any conditional returns
   const getBreadcrumbTitle = (path: string) => {
     // Kiểm tra exact match
-    if (breadcrumbMap[path]) return breadcrumbMap[path];
+    if (breadcrumbMap[path])
+      return {
+        title: breadcrumbMap[path],
+        path: path,
+      };
 
     // Kiểm tra dynamic routes (có /[id]/)
     for (const [key, value] of Object.entries(breadcrumbMap)) {
       if (path.startsWith(key + "/")) {
-        return value;
+        return {
+          title: value,
+          path: key,
+        };
       }
     }
 
-    return path.split("/").pop() || "Trang";
+    return { title: "Trang chủ", path: "/dashboard" };
   };
 
   const menuItems = allMenuItems
@@ -222,28 +215,13 @@ export default function DashboardLayout({
   // Controlled open keys for accordion behavior: keep only one submenu open at a time
   const [openKeys, setOpenKeys] = useState<string[]>(getOpenKeys());
 
-  useEffect(() => {
-    // update open keys when pathname changes (e.g. navigation)
-    setOpenKeys(getOpenKeys());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  // Ensure menu open state matches current path on initial mount and when
-  // menuItems change (for example when permissions load). This guarantees
-  // that after a full page reload the parent submenu containing the current
-  // route will be expanded.
-  useEffect(() => {
-    setOpenKeys(getOpenKeys());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, menuItems.length]);
-
-  const handleOpenChange = (keys: string[]) => {
-    // keep only the most recently opened key (accordion)
-    if (!keys || keys.length === 0) {
-      setOpenKeys([]);
-      return;
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push("/auth");
+    } catch (error) {
+      console.error("Logout failed:", error);
     }
-    setOpenKeys([keys[keys.length - 1]]);
   };
 
   const getBreadcrumbItems = () => {
@@ -261,7 +239,13 @@ export default function DashboardLayout({
 
     if (pathname !== "/dashboard") {
       items.push({
-        title: <span>{getBreadcrumbTitle(pathname)}</span>,
+        title: (
+          <Link href={getBreadcrumbTitle(pathname).path}>
+            <span className="flex gap-2 items-center">
+              <span>{getBreadcrumbTitle(pathname).title}</span>
+            </span>
+          </Link>
+        ),
       });
     }
 
@@ -278,25 +262,36 @@ export default function DashboardLayout({
     },
   ];
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <LoaderApp />
-      </div>
-    );
-  }
+  const handleOpenChange = (keys: string[]) => {
+    // keep only the most recently opened key (accordion)
+    if (!keys || keys.length === 0) {
+      setOpenKeys([]);
+      return;
+    }
+    setOpenKeys([keys[keys.length - 1]]);
+  };
+
+  // Effects - must be called before any conditional returns
+  useEffect(() => {
+    // update open keys when pathname changes (e.g. navigation)
+    setOpenKeys(getOpenKeys());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  useEffect(() => {
+    setOpenKeys(getOpenKeys());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, menuItems.length]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/auth");
+    }
+  }, [user, isUserLoading, router]);
+
   return (
-    <Layout
-      style={{ minHeight: "100vh" }}
-      className="bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"
-    >
+    <Layout style={{ minHeight: "100vh" }}>
       {!isMobile && (
         <Sider
           trigger={null}
@@ -410,7 +405,7 @@ export default function DashboardLayout({
                       label: (
                         <div className="flex flex-col items-center p-2">
                           <Text strong style={{ color: "white" }}>
-                            {user?.fullName}
+                            {user?.displayName || user?.email}
                           </Text>
                           <Text
                             style={{
@@ -418,7 +413,7 @@ export default function DashboardLayout({
                               color: "rgba(255, 255, 255, 0.65)",
                             }}
                           >
-                            {user?.roleCode}
+                            {user?.email}
                           </Text>
                         </div>
                       ),
@@ -456,7 +451,7 @@ export default function DashboardLayout({
                   />
                   <div className="flex flex-col">
                     <Text strong style={{ color: "white" }}>
-                      {user?.fullName}
+                      {user?.displayName || user?.email}
                     </Text>
                     <Text
                       style={{
@@ -464,7 +459,7 @@ export default function DashboardLayout({
                         color: "rgba(255, 255, 255, 0.65)",
                       }}
                     >
-                      {user?.roleCode}
+                      {user?.email}
                     </Text>
                   </div>
                 </div>
@@ -499,13 +494,14 @@ export default function DashboardLayout({
               icon={sidebarOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
             />
 
-            <Breadcrumb items={getBreadcrumbItems()} />
-            {pageTitle && (
-              <>
-                <DoubleRightOutlined />
-                <Text strong>{pageTitle}</Text>
-              </>
-            )}
+            <Breadcrumb
+              items={[
+                ...getBreadcrumbItems(),
+                {
+                  title: <span>{pageTitle}</span>,
+                },
+              ]}
+            />
           </div>
 
           {!isMobile && (
@@ -525,9 +521,9 @@ export default function DashboardLayout({
                   }}
                 />
                 <div className="flex flex-col">
-                  <Text strong>{user?.fullName}</Text>
+                  <Text strong>{user?.displayName || user?.email}</Text>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {user?.roleCode}
+                    {user?.email}
                   </Text>
                 </div>
               </div>
@@ -544,7 +540,20 @@ export default function DashboardLayout({
             borderRadius: token.borderRadius,
           }}
         >
-          {children}
+          {isUserLoading ? (
+            <div
+              style={{
+                minHeight: "100vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <LoaderApp />
+            </div>
+          ) : (
+            children
+          )}
         </Content>
       </Layout>
     </Layout>

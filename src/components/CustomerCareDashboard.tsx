@@ -440,7 +440,6 @@ export default function CustomerCareDashboard() {
 
   return (
     <WrapperContent
-      title="Chăm sóc khách hàng"
       header={{
         searchInput: {
           placeholder: "Tìm kiếm theo tên hoặc số điện thoại",

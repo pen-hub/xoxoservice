@@ -1,0 +1,2298 @@
+{
+  "workflows": {
+    "workflowId001": {
+      "name": "Cutting",
+      "defaultEmployees": [
+        "NV001",
+        "NV002"
+      ],
+      "createdAt": 1736597610
+    },
+    "workflowId002": {
+      "name": "Sewing",
+      "defaultEmployees": [
+        "NV001"
+      ],
+      "createdAt": 1741176810
+    },
+    "workflowId003": {
+      "name": "Quality Control",
+      "defaultEmployees": [
+        "NV004"
+      ],
+      "createdAt": 1753186410
+    },
+    "workflowId004": {
+      "name": "Packaging",
+      "defaultEmployees": [
+        "NV002",
+        "NV005"
+      ],
+      "createdAt": 1757074410
+    },
+    "workflowId005": {
+      "name": "Washing",
+      "defaultEmployees": [
+        "NV003"
+      ],
+      "createdAt": 1751631210
+    },
+    "workflowId006": {
+      "name": "Ironing",
+      "defaultEmployees": [
+        "NV002"
+      ],
+      "createdAt": 1733573610
+    },
+    "workflowId007": {
+      "name": "Embroidery",
+      "defaultEmployees": [
+        "NV006"
+      ],
+      "createdAt": 1734610410
+    },
+    "workflowId008": {
+      "name": "Button Sewing",
+      "defaultEmployees": [
+        "NV001",
+        "NV002"
+      ],
+      "createdAt": 1741263210
+    }
+  },
+  "employees": {
+    "NV001": {
+      "name": "Nguyen Van A",
+      "role": "worker"
+    },
+    "NV002": {
+      "name": "Tran Thi B",
+      "role": "worker"
+    },
+    "NV003": {
+      "name": "Le Van C",
+      "role": "worker"
+    },
+    "NV004": {
+      "name": "Pham Thi D",
+      "role": "qc"
+    },
+    "NV005": {
+      "name": "Hoang Van E",
+      "role": "worker"
+    },
+    "NV006": {
+      "name": "Vo Thi F",
+      "role": "specialist"
+    },
+    "NV007": {
+      "name": "Dang Van G",
+      "role": "worker"
+    },
+    "NV008": {
+      "name": "Bui Thi H",
+      "role": "qc"
+    },
+    "NV009": {
+      "name": "Do Van Sale",
+      "role": "sale"
+    },
+    "NV010": {
+      "name": "Ngo Thi Manager",
+      "role": "manager"
+    }
+  },
+  "orders": {
+    "orderId001": {
+      "code": "ORD001",
+      "customerName": "Lan",
+      "createdBy": "NV010",
+      "createdAt": 1757852010,
+      "products": {
+        "productId001": {
+          "name": "Sweater",
+          "quantity": 340,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1758104643
+            },
+            "step2": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 340,
+              "updatedAt": 1758341625
+            },
+            "step3": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1757943575
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1757963325
+            },
+            "step5": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 154,
+              "updatedAt": 1758269503
+            }
+          }
+        }
+      }
+    },
+    "orderId002": {
+      "code": "ORD002",
+      "customerName": "Minh",
+      "createdBy": "NV010",
+      "createdAt": 1763036010,
+      "products": {
+        "productId001": {
+          "name": "Hoodie",
+          "quantity": 222,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 222,
+              "updatedAt": 1763291094
+            },
+            "step2": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763342853
+            },
+            "step3": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 222,
+              "updatedAt": 1763170038
+            },
+            "step4": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 222,
+              "updatedAt": 1763490873
+            }
+          }
+        },
+        "productId002": {
+          "name": "Jeans",
+          "quantity": 443,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763096062
+            },
+            "step2": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763451080
+            },
+            "step3": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763427440
+            },
+            "step4": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "completed",
+              "completedQuantity": 443,
+              "updatedAt": 1763424458
+            }
+          }
+        }
+      }
+    },
+    "orderId003": {
+      "code": "ORD003",
+      "customerName": "Hoa",
+      "createdBy": "NV010",
+      "createdAt": 1760530410,
+      "products": {
+        "productId001": {
+          "name": "Skirt",
+          "quantity": 137,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "completed",
+              "completedQuantity": 137,
+              "updatedAt": 1761092646
+            },
+            "step2": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 90,
+              "updatedAt": 1760857901
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761119030
+            },
+            "step4": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761127048
+            }
+          }
+        }
+      }
+    },
+    "orderId004": {
+      "code": "ORD004",
+      "customerName": "Duc",
+      "createdBy": "NV009",
+      "createdAt": 1757592810,
+      "products": {
+        "productId001": {
+          "name": "Shorts",
+          "quantity": 263,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 263,
+              "updatedAt": 1757745649
+            },
+            "step2": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1757903787
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 162,
+              "updatedAt": 1757788581
+            },
+            "step4": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 16,
+              "updatedAt": 1757639587
+            },
+            "step5": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1757646628
+            }
+          }
+        },
+        "productId002": {
+          "name": "Women's T-Shirt",
+          "quantity": 244,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 244,
+              "updatedAt": 1757838529
+            },
+            "step2": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 244,
+              "updatedAt": 1757791516
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 14,
+              "updatedAt": 1757958838
+            },
+            "step4": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 191,
+              "updatedAt": 1757944555
+            }
+          }
+        }
+      }
+    },
+    "orderId005": {
+      "code": "ORD005",
+      "customerName": "Hong",
+      "createdBy": "NV010",
+      "createdAt": 1763468010,
+      "products": {
+        "productId001": {
+          "name": "Jeans",
+          "quantity": 471,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 471,
+              "updatedAt": 1763923437
+            },
+            "step2": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 471,
+              "updatedAt": 1763480499
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 163,
+              "updatedAt": 1763776122
+            },
+            "step4": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 167,
+              "updatedAt": 1763588689
+            }
+          }
+        },
+        "productId002": {
+          "name": "Sweater",
+          "quantity": 287,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763742641
+            },
+            "step2": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 287,
+              "updatedAt": 1763577548
+            },
+            "step3": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 6,
+              "updatedAt": 1763626896
+            },
+            "step4": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 287,
+              "updatedAt": 1763898357
+            }
+          }
+        },
+        "productId003": {
+          "name": "Blouse",
+          "quantity": 419,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 106,
+              "updatedAt": 1763802947
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 419,
+              "updatedAt": 1763610775
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 419,
+              "updatedAt": 1763536971
+            },
+            "step4": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 419,
+              "updatedAt": 1763713337
+            },
+            "step5": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "completed",
+              "completedQuantity": 419,
+              "updatedAt": 1764007687
+            }
+          }
+        }
+      }
+    },
+    "orderId006": {
+      "code": "ORD006",
+      "customerName": "Minh",
+      "createdBy": "NV009",
+      "createdAt": 1761221610,
+      "products": {
+        "productId001": {
+          "name": "Jeans",
+          "quantity": 83,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 83,
+              "updatedAt": 1761240905
+            },
+            "step2": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 66,
+              "updatedAt": 1761246962
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 83,
+              "updatedAt": 1761752850
+            },
+            "step4": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 83,
+              "updatedAt": 1761471987
+            }
+          }
+        },
+        "productId002": {
+          "name": "Hoodie",
+          "quantity": 410,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 30,
+              "updatedAt": 1761386377
+            },
+            "step2": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761716097
+            },
+            "step3": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 410,
+              "updatedAt": 1761371378
+            },
+            "step4": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761636837
+            }
+          }
+        }
+      }
+    },
+    "orderId007": {
+      "code": "ORD007",
+      "customerName": "Minh",
+      "createdBy": "NV010",
+      "createdAt": 1761912810,
+      "products": {
+        "productId001": {
+          "name": "Jeans",
+          "quantity": 465,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762058022
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 465,
+              "updatedAt": 1762206273
+            },
+            "step3": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762053190
+            },
+            "step4": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761921427
+            },
+            "step5": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 282,
+              "updatedAt": 1761928047
+            }
+          }
+        },
+        "productId002": {
+          "name": "Jeans",
+          "quantity": 474,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762220670
+            },
+            "step2": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 257,
+              "updatedAt": 1762472991
+            },
+            "step3": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 57,
+              "updatedAt": 1761961396
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 26,
+              "updatedAt": 1762069481
+            },
+            "step5": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 474,
+              "updatedAt": 1762158636
+            }
+          }
+        },
+        "productId003": {
+          "name": "Shorts",
+          "quantity": 279,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762167829
+            },
+            "step2": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 68,
+              "updatedAt": 1762420607
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 279,
+              "updatedAt": 1762093937
+            },
+            "step4": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 279,
+              "updatedAt": 1762318814
+            },
+            "step5": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 72,
+              "updatedAt": 1762353799
+            }
+          }
+        }
+      }
+    },
+    "orderId008": {
+      "code": "ORD008",
+      "customerName": "Thu",
+      "createdBy": "NV010",
+      "createdAt": 1761567210,
+      "products": {
+        "productId001": {
+          "name": "Women's T-Shirt",
+          "quantity": 415,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 415,
+              "updatedAt": 1761642171
+            },
+            "step2": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761992065
+            },
+            "step3": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761720779
+            }
+          }
+        }
+      }
+    },
+    "orderId009": {
+      "code": "ORD009",
+      "customerName": "Ly",
+      "createdBy": "NV010",
+      "createdAt": 1760098410,
+      "products": {
+        "productId001": {
+          "name": "Hoodie",
+          "quantity": 362,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 362,
+              "updatedAt": 1760550111
+            },
+            "step2": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1760602159
+            },
+            "step3": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 215,
+              "updatedAt": 1760670812
+            },
+            "step4": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1760322890
+            },
+            "step5": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "completed",
+              "completedQuantity": 362,
+              "updatedAt": 1760510688
+            }
+          }
+        },
+        "productId002": {
+          "name": "Skirt",
+          "quantity": 309,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 147,
+              "updatedAt": 1760112388
+            },
+            "step2": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1760597240
+            },
+            "step3": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1760128098
+            },
+            "step4": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1760430423
+            },
+            "step5": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "completed",
+              "completedQuantity": 309,
+              "updatedAt": 1760125018
+            }
+          }
+        },
+        "productId003": {
+          "name": "Men's Polo",
+          "quantity": 313,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "completed",
+              "completedQuantity": 313,
+              "updatedAt": 1760529554
+            },
+            "step2": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 79,
+              "updatedAt": 1760445749
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 151,
+              "updatedAt": 1760098536
+            },
+            "step4": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 52,
+              "updatedAt": 1760512313
+            },
+            "step5": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 179,
+              "updatedAt": 1760342914
+            }
+          }
+        }
+      }
+    },
+    "orderId010": {
+      "code": "ORD010",
+      "customerName": "Thu",
+      "createdBy": "NV009",
+      "createdAt": 1764764010,
+      "products": {
+        "productId001": {
+          "name": "Shorts",
+          "quantity": 270,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764785851
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764773862
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 270,
+              "updatedAt": 1765122546
+            },
+            "step4": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 171,
+              "updatedAt": 1765252256
+            }
+          }
+        },
+        "productId002": {
+          "name": "Shorts",
+          "quantity": 414,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764769353
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 414,
+              "updatedAt": 1765203536
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 414,
+              "updatedAt": 1764776661
+            }
+          }
+        },
+        "productId003": {
+          "name": "Sweater",
+          "quantity": 374,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 177,
+              "updatedAt": 1765233177
+            },
+            "step2": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 374,
+              "updatedAt": 1764808891
+            },
+            "step3": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1765067522
+            }
+          }
+        }
+      }
+    },
+    "orderId011": {
+      "code": "ORD011",
+      "customerName": "Ly",
+      "createdBy": "NV010",
+      "createdAt": 1759752810,
+      "products": {
+        "productId001": {
+          "name": "Kids Dress",
+          "quantity": 79,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 79,
+              "updatedAt": 1760242977
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1759781891
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 79,
+              "updatedAt": 1759960606
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 63,
+              "updatedAt": 1760184382
+            },
+            "step5": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1759911902
+            }
+          }
+        },
+        "productId002": {
+          "name": "Men's Polo",
+          "quantity": 347,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "completed",
+              "completedQuantity": 347,
+              "updatedAt": 1759796073
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1760164156
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 191,
+              "updatedAt": 1760346054
+            },
+            "step4": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 272,
+              "updatedAt": 1760118802
+            }
+          }
+        }
+      }
+    },
+    "orderId012": {
+      "code": "ORD012",
+      "customerName": "Hoa",
+      "createdBy": "NV010",
+      "createdAt": 1764159210,
+      "products": {
+        "productId001": {
+          "name": "Hoodie",
+          "quantity": 369,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764674305
+            },
+            "step2": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 243,
+              "updatedAt": 1764662677
+            },
+            "step3": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764471302
+            },
+            "step4": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 369,
+              "updatedAt": 1764270361
+            }
+          }
+        }
+      }
+    },
+    "orderId013": {
+      "code": "ORD013",
+      "customerName": "Linh",
+      "createdBy": "NV010",
+      "createdAt": 1764159210,
+      "products": {
+        "productId001": {
+          "name": "Sweater",
+          "quantity": 303,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 235,
+              "updatedAt": 1764321544
+            },
+            "step2": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764625904
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 303,
+              "updatedAt": 1764526977
+            },
+            "step4": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 14,
+              "updatedAt": 1764706613
+            },
+            "step5": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 7,
+              "updatedAt": 1764293173
+            }
+          }
+        },
+        "productId002": {
+          "name": "Sweater",
+          "quantity": 349,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "completed",
+              "completedQuantity": 349,
+              "updatedAt": 1764439532
+            },
+            "step2": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1764651828
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 349,
+              "updatedAt": 1764440301
+            }
+          }
+        }
+      }
+    },
+    "orderId014": {
+      "code": "ORD014",
+      "customerName": "Minh",
+      "createdBy": "NV010",
+      "createdAt": 1761308010,
+      "products": {
+        "productId001": {
+          "name": "Men's Polo",
+          "quantity": 320,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 320,
+              "updatedAt": 1761859595
+            },
+            "step2": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 20,
+              "updatedAt": 1761535953
+            },
+            "step3": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 163,
+              "updatedAt": 1761344447
+            },
+            "step4": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 189,
+              "updatedAt": 1761578462
+            }
+          }
+        },
+        "productId002": {
+          "name": "Sweater",
+          "quantity": 349,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 190,
+              "updatedAt": 1761556597
+            },
+            "step2": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761386451
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 211,
+              "updatedAt": 1761358012
+            }
+          }
+        },
+        "productId003": {
+          "name": "Sweater",
+          "quantity": 208,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "completed",
+              "completedQuantity": 208,
+              "updatedAt": 1761428108
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 208,
+              "updatedAt": 1761880313
+            },
+            "step3": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 21,
+              "updatedAt": 1761450046
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 65,
+              "updatedAt": 1761542266
+            }
+          }
+        }
+      }
+    },
+    "orderId015": {
+      "code": "ORD015",
+      "customerName": "Duc",
+      "createdBy": "NV009",
+      "createdAt": 1762344810,
+      "products": {
+        "productId001": {
+          "name": "Blouse",
+          "quantity": 410,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 410,
+              "updatedAt": 1762430479
+            },
+            "step2": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 164,
+              "updatedAt": 1762624103
+            },
+            "step3": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "completed",
+              "completedQuantity": 410,
+              "updatedAt": 1762578020
+            },
+            "step4": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 31,
+              "updatedAt": 1762569955
+            }
+          }
+        },
+        "productId002": {
+          "name": "Skirt",
+          "quantity": 409,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 409,
+              "updatedAt": 1762763487
+            },
+            "step2": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 88,
+              "updatedAt": 1762944178
+            },
+            "step3": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 409,
+              "updatedAt": 1762798217
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 409,
+              "updatedAt": 1762443958
+            }
+          }
+        },
+        "productId003": {
+          "name": "Kids Dress",
+          "quantity": 432,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 268,
+              "updatedAt": 1762620732
+            },
+            "step2": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 328,
+              "updatedAt": 1762595328
+            },
+            "step3": {
+              "workflowId": "workflowId008",
+              "name": "Button Sewing",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 161,
+              "updatedAt": 1762888834
+            },
+            "step4": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762576243
+            },
+            "step5": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 432,
+              "updatedAt": 1762771284
+            }
+          }
+        }
+      }
+    },
+    "orderId016": {
+      "code": "ORD016",
+      "customerName": "Ly",
+      "createdBy": "NV010",
+      "createdAt": 1758543210,
+      "products": {
+        "productId001": {
+          "name": "Women's T-Shirt",
+          "quantity": 295,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "completed",
+              "completedQuantity": 295,
+              "updatedAt": 1758947527
+            },
+            "step2": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 295,
+              "updatedAt": 1758846927
+            },
+            "step3": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 4,
+              "updatedAt": 1758580717
+            }
+          }
+        },
+        "productId002": {
+          "name": "Shorts",
+          "quantity": 420,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1759008654
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1758793046
+            },
+            "step3": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1758808071
+            },
+            "step4": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 236,
+              "updatedAt": 1759085211
+            }
+          }
+        }
+      }
+    },
+    "orderId017": {
+      "code": "ORD017",
+      "customerName": "Duc",
+      "createdBy": "NV010",
+      "createdAt": 1759234410,
+      "products": {
+        "productId001": {
+          "name": "Jeans",
+          "quantity": 498,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1759618999
+            },
+            "step2": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 498,
+              "updatedAt": 1759801336
+            },
+            "step3": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "completed",
+              "completedQuantity": 498,
+              "updatedAt": 1759740995
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1759536337
+            }
+          }
+        }
+      }
+    },
+    "orderId018": {
+      "code": "ORD018",
+      "customerName": "Minh",
+      "createdBy": "NV009",
+      "createdAt": 1762949610,
+      "products": {
+        "productId001": {
+          "name": "Kids Dress",
+          "quantity": 50,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763541487
+            },
+            "step2": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 50,
+              "updatedAt": 1763326967
+            },
+            "step3": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763333562
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 50,
+              "updatedAt": 1763239248
+            },
+            "step5": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 50,
+              "updatedAt": 1763452174
+            }
+          }
+        },
+        "productId002": {
+          "name": "Skirt",
+          "quantity": 195,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "completed",
+              "completedQuantity": 195,
+              "updatedAt": 1763252752
+            },
+            "step2": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1763071633
+            },
+            "step3": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 195,
+              "updatedAt": 1763530050
+            }
+          }
+        }
+      }
+    },
+    "orderId019": {
+      "code": "ORD019",
+      "customerName": "Duc",
+      "createdBy": "NV010",
+      "createdAt": 1761480810,
+      "products": {
+        "productId001": {
+          "name": "Hoodie",
+          "quantity": 123,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 13,
+              "updatedAt": 1761745040
+            },
+            "step2": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "completed",
+              "completedQuantity": 123,
+              "updatedAt": 1761994258
+            },
+            "step3": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762002098
+            },
+            "step4": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 123,
+              "updatedAt": 1761495341
+            },
+            "step5": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1762044517
+            }
+          }
+        },
+        "productId002": {
+          "name": "Blouse",
+          "quantity": 191,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 138,
+              "updatedAt": 1761703603
+            },
+            "step2": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1761852474
+            },
+            "step3": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "completed",
+              "completedQuantity": 191,
+              "updatedAt": 1761747632
+            },
+            "step4": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 129,
+              "updatedAt": 1761686511
+            }
+          }
+        }
+      }
+    },
+    "orderId020": {
+      "code": "ORD020",
+      "customerName": "Hong",
+      "createdBy": "NV010",
+      "createdAt": 1758284010,
+      "products": {
+        "productId001": {
+          "name": "Hoodie",
+          "quantity": 415,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId007",
+              "name": "Embroidery",
+              "employees": {
+                "NV006": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 272,
+              "updatedAt": 1758356234
+            },
+            "step2": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 279,
+              "updatedAt": 1758704356
+            },
+            "step3": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 257,
+              "updatedAt": 1758605312
+            },
+            "step4": {
+              "workflowId": "workflowId003",
+              "name": "Quality Control",
+              "employees": {
+                "NV004": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 61,
+              "updatedAt": 1758388949
+            }
+          }
+        },
+        "productId002": {
+          "name": "Shorts",
+          "quantity": 415,
+          "steps": {
+            "step1": {
+              "workflowId": "workflowId001",
+              "name": "Cutting",
+              "employees": {
+                "NV001": true,
+                "NV002": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 115,
+              "updatedAt": 1758369174
+            },
+            "step2": {
+              "workflowId": "workflowId004",
+              "name": "Packaging",
+              "employees": {
+                "NV002": true,
+                "NV005": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 185,
+              "updatedAt": 1758425127
+            },
+            "step3": {
+              "workflowId": "workflowId005",
+              "name": "Washing",
+              "employees": {
+                "NV003": true
+              },
+              "status": "in_progress",
+              "completedQuantity": 140,
+              "updatedAt": 1758511809
+            },
+            "step4": {
+              "workflowId": "workflowId006",
+              "name": "Ironing",
+              "employees": {
+                "NV002": true
+              },
+              "status": "completed",
+              "completedQuantity": 415,
+              "updatedAt": 1758636045
+            },
+            "step5": {
+              "workflowId": "workflowId002",
+              "name": "Sewing",
+              "employees": {
+                "NV001": true
+              },
+              "status": "pending",
+              "completedQuantity": 0,
+              "updatedAt": 1758523767
+            }
+          }
+        }
+      }
+    }
+  },
+  "metadata": {
+    "generated_at": "2025-12-05T12:13:30.402Z",
+    "specification": "ORDER_FLOW.md Firebase Realtime Database",
+    "total_workflows": 8,
+    "total_employees": 10,
+    "total_orders": 20
+  }
+}

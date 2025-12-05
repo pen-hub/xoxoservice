@@ -1,7 +1,23 @@
 "use client";
 
-import { WarehouseType } from "@/types/enum";
-import { WarehouseFormValues, WarehouseOptions } from "@/types/warehouse";
+// Define inline types
+enum WarehouseType {
+  MAIN = "main",
+  BRANCH = "branch",
+  TEMP = "temp",
+}
+
+interface WarehouseFormValues {
+  id?: number;
+  warehouseName: string;
+  warehouseType: WarehouseType;
+  isActive: boolean;
+  branchId?: number;
+}
+
+interface WarehouseOptions {
+  branches: { id: number; branchName: string }[];
+}
 import { Button, Form, Input, Select, Switch } from "antd";
 
 function WarehouseForm({
@@ -45,7 +61,13 @@ function WarehouseForm({
         label="Loại kho"
         rules={[{ required: true }]}
       >
-        <Select<WarehouseType> options={WarehouseOptions} />
+        <Select<WarehouseType>
+          options={[
+            { value: WarehouseType.MAIN, label: "Kho chính" },
+            { value: WarehouseType.BRANCH, label: "Kho chi nhánh" },
+            { value: WarehouseType.TEMP, label: "Kho tạm" },
+          ]}
+        />
       </Form.Item>
       <Form.Item name="branchId" label="Chi nhánh" rules={[{ required: true }]}>
         <Select>

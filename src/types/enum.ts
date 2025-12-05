@@ -1,4 +1,4 @@
-export enum WarehouseType {
-    NVL = 'NVL',
-    THANH_PHAM = 'THANH_PHAM',
+export enum DiscountType {
+  Amount = "amount",
+  Percentage = "percentage",
 }
