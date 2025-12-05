@@ -595,7 +595,7 @@ const ProductDetailCard = ({
               {stages.length > 0 ? (
                 <div className="workflow-steps">
                   <Steps
-                    direction="vertical"
+                    orientation="vertical"
                     size="small"
                     current={
                       currentStageIndex !== -1
