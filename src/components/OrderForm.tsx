@@ -53,6 +53,7 @@ import {
   Row,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -102,13 +103,31 @@ interface FirebaseCustomers {
 
 const statusOptions = [
   { value: "pending", label: "Chờ xử lý", color: "default" },
-  { value: "confirmed", label: "Đã xác nhận", color: "warning" },
-  { value: "in_progress", label: "Đang thực hiện", color: "processing" },
-  { value: "completed", label: "Hoàn thành", color: "success" },
+  {
+    value: "confirmed",
+    label: "Xác nhận",
+
+    color: "warning",
+  },
+  {
+    value: "in_progress",
+    label: "Thực hiện",
+    color: "processing",
+  },
+  {
+    value: "on_hold",
+    label: "Thanh toán",
+    color: "warning",
+  },
+  {
+    value: "completed",
+    label: "Hoàn thành",
+    color: "success",
+  },
   { value: "cancelled", label: "Đã hủy", color: "error" },
 ];
 
-const ProductCard: React.FC<ProductCardProps> = ({
+const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
   product,
   onUpdate,
   onRemove,
@@ -117,6 +136,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   workflows,
   staff,
   departments,
+  status,
 }) => {
   const { message } = App.useApp();
 
@@ -389,6 +409,55 @@ const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
+        {/* Post-completion Images Upload */}
+        {status === OrderStatus.ON_HOLD && (
+          <div className="space-y-2 flex flex-col mt-4 p-4 border border-dashed border-yellow-500 rounded-lg bg-yellow-50">
+            <Text strong className="text-yellow-700">
+              Ảnh sau khi hoàn thiện <Text type="danger">*</Text>
+            </Text>
+            <Upload
+              listType="picture-card"
+              fileList={product.imagesDone}
+              beforeUpload={async (file) => {
+                const base64 = await getBase64(file);
+                const newFile = {
+                  uid: file.uid,
+                  name: file.name,
+                  status: "done" as const,
+                  url: base64,
+                  originFileObj: file,
+                };
+                updateProduct("imagesDone", [
+                  ...(product.imagesDone || []),
+                  newFile,
+                ]);
+                return false;
+              }}
+              onRemove={(file) => {
+                const updatedImages = (product.imagesDone || []).filter(
+                  (item: any) => item.uid !== file.uid
+                );
+                updateProduct("imagesDone", updatedImages);
+                return true;
+              }}
+              multiple
+              accept="image/*"
+            >
+              {product.imagesDone && product.imagesDone.length >= 5 ? null : (
+                <div className="flex flex-col items-center justify-center p-2">
+                  <UploadOutlined className="text-xl mb-1" />
+                  <Text className="text-xs text-center">Tải ảnh</Text>
+                </div>
+              )}
+            </Upload>
+            {(!product.imagesDone || product.imagesDone.length === 0) && (
+              <Text type="danger" className="text-xs">
+                Vui lòng tải lên ảnh sau khi hoàn thiện.
+              </Text>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 my-4">
           <div className="h-px bg-gray-200 flex-1"></div>
           <Text strong className="text-primary px-3">
@@ -635,7 +704,13 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const { user } = useUser();
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
+
+    useEffect(() => {
+      if (mode === "update") {
+        setCustomerType("existing");
+      }
+    }, [mode]);
 
     // Calculate total amount and update form when dependencies change
     const totalAmount = React.useMemo(() => {
@@ -704,6 +779,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
         totalAmount: orderData.totalAmount,
         deposit: orderData.deposit || 0,
         depositType: orderData.depositType || DiscountType.Percentage,
+        isDepositPaid: orderData.isDepositPaid || false,
       });
 
       // Convert products data back to form format
@@ -721,9 +797,17 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
               url: img.url,
               firebaseUrl: img.url,
             })) || [],
+          imagesDone:
+            productData.imagesDone?.map((img: any, index: number) => ({
+              uid: img.uid || `img-done-${index}`,
+              name: img.name || `image-done-${index}`,
+              url: img.url,
+              firebaseUrl: img.url,
+            })) || [],
           workflows: Object.entries(productData.workflows || {}).map(
             ([workflowId, workflowData]: [string, FirebaseWorkflowData]) => ({
               id: workflowId,
+              departmentCode: workflowData.departmentCode,
               workflowCode: workflowData.workflowCode || [],
               workflowName: workflowData.workflowName || [],
               members: workflowData.members || [],
@@ -754,6 +838,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
         price: 0,
         commissionPercentage: 0,
         images: [],
+        imagesDone: [],
         workflows: [],
       };
       products.unshift(newProduct);
@@ -821,7 +906,11 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           return;
         }
         // Image validation based on status
-        if (status !== OrderStatus.PENDING && product.images.length === 0) {
+        if (
+          mode === "update" &&
+          status !== OrderStatus.PENDING &&
+          product.images.length === 0
+        ) {
           message.warning(
             `Vui lòng tải lên ít nhất 1 ảnh cho sản phẩm ${product.id} vì đơn hàng không ở trạng thái "Chờ xử lý".`
           );
@@ -933,15 +1022,10 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                   try {
                     const firebaseUrl = await uploadImageToFirebase(
                       image.originFileObj as File,
-                      product.id,
+                      `${product.id}_before`,
                       index
                     );
-                    return {
-                      uid: image.uid,
-                      name: image.name,
-                      url: firebaseUrl,
-                      firebaseUrl,
-                    };
+                    return { ...image, firebaseUrl };
                   } catch (error) {
                     console.error(
                       `Error uploading image ${image.name}:`,
@@ -950,21 +1034,44 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                     message.error(
                       `Không thể tải ảnh ${image.name} lên Firebase`
                     );
-                    return {
-                      uid: image.uid,
-                      name: image.name,
-                      url: image.url,
-                      error: true,
-                    };
+                    return { ...image, error: true };
                   }
                 }
                 return image;
               })
             );
 
+            const uploadedImagesDone = await Promise.all(
+              (product.imagesDone || []).map(
+                async (image: any, index: number) => {
+                  if (image.originFileObj) {
+                    try {
+                      const firebaseUrl = await uploadImageToFirebase(
+                        image.originFileObj as File,
+                        `${product.id}_after`,
+                        index
+                      );
+                      return { ...image, firebaseUrl };
+                    } catch (error) {
+                      console.error(
+                        `Error uploading image ${image.name}:`,
+                        error
+                      );
+                      message.error(
+                        `Không thể tải ảnh ${image.name} lên Firebase`
+                      );
+                      return { ...image, error: true };
+                    }
+                  }
+                  return image;
+                }
+              )
+            );
+
             return {
               ...product,
-              images: uploadedImages,
+              images: uploadedImages.filter((img) => !img.error),
+              imagesDone: uploadedImagesDone.filter((img) => !img.error),
             };
           })
         );
@@ -1019,6 +1126,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           deposit: values.deposit || 0,
           depositType: depositType,
           depositAmount: depositAmount,
+          isDepositPaid: values.isDepositPaid || false,
           deliveryDate: values.deliveryDate
             ? values.deliveryDate.valueOf()
             : new Date().getTime(),
@@ -1050,6 +1158,11 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                 name: img.name,
                 url: img.firebaseUrl || img.url || "",
               })),
+              imagesDone: (product.imagesDone || []).map((img: any) => ({
+                uid: img.uid,
+                name: img.name,
+                url: img.firebaseUrl || img.url || "",
+              })),
               workflows: product.workflows.reduce(
                 (workflowAcc: any, workflow: WorkflowData) => {
                   const workflowNames = workflow.workflowCode
@@ -1057,6 +1170,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                     .filter(Boolean) as string[];
 
                   workflowAcc[workflow.id] = {
+                    departmentCode: (workflow as any).departmentCode,
                     workflowCode: workflow.workflowCode,
                     workflowName: workflowNames,
                     members: workflow.members,
@@ -1200,32 +1314,34 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
             <div className="mb-6">
               <div className="mb-3 pb-2 border-b border-gray-200 flex justify-between items-center">
                 <Text strong>Khách hàng</Text>
-                <Radio.Group
-                  value={customerType}
-                  onChange={(e) => {
-                    setCustomerType(e.target.value);
-                    form.resetFields([
-                      "customerCode",
-                      "customerName",
-                      "phone",
-                      "email",
-                      "address",
-                    ]);
-                  }}
-                  optionType="button"
-                  buttonStyle="solid"
-                  size="small"
-                >
-                  <Radio.Button value="new">Khách mới</Radio.Button>
-                  <Radio.Button value="existing">Khách cũ</Radio.Button>
-                </Radio.Group>
+                {mode === "create" && (
+                  <Radio.Group
+                    value={customerType}
+                    onChange={(e) => {
+                      setCustomerType(e.target.value);
+                      form.resetFields([
+                        "customerCode",
+                        "customerName",
+                        "phone",
+                        "email",
+                        "address",
+                      ]);
+                    }}
+                    optionType="button"
+                    buttonStyle="solid"
+                    size="small"
+                  >
+                    <Radio.Button value="new">Khách mới</Radio.Button>
+                    <Radio.Button value="existing">Khách cũ</Radio.Button>
+                  </Radio.Group>
+                )}
               </div>
 
               <Form.Item name="customerCode" hidden>
                 <Input />
               </Form.Item>
 
-              {customerType === "existing" ? (
+              {mode === "create" && customerType === "existing" ? (
                 <Form.Item
                   label="Chọn khách hàng"
                   name="customerCode"
@@ -1298,7 +1414,9 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                   >
                     <Input
                       placeholder="VD: Nguyễn Thị Lan Anh"
-                      disabled={customerType === "existing"}
+                      disabled={
+                        mode === "update" || customerType === "existing"
+                      }
                     />
                   </Form.Item>
                 </Col>
@@ -1319,7 +1437,9 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                   >
                     <Input
                       placeholder="VD: 0123456789"
-                      disabled={customerType === "existing"}
+                      disabled={
+                        mode === "update" || customerType === "existing"
+                      }
                     />
                   </Form.Item>
                 </Col>
@@ -1334,7 +1454,9 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                   >
                     <Input
                       placeholder="VD: khachhang@email.com"
-                      disabled={customerType === "existing"}
+                      disabled={
+                        mode === "update" || customerType === "existing"
+                      }
                     />
                   </Form.Item>
                 </Col>
@@ -1344,7 +1466,9 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                       placeholder="Chọn nguồn khách hàng"
                       className="w-full"
                       allowClear
-                      disabled={customerType === "existing"}
+                      disabled={
+                        mode === "update" || customerType === "existing"
+                      }
                       showSearch={{
                         optionFilterProp: "children",
                         filterOption: (input, option) =>
@@ -1373,7 +1497,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                 <Input.TextArea
                   rows={2}
                   placeholder="VD: 123 Đường ABC, Quận XYZ, TP.HN"
-                  disabled={customerType === "existing"}
+                  disabled={mode === "update" || customerType === "existing"}
                 />
               </Form.Item>
             </div>
@@ -1419,24 +1543,28 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                     />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
-                  <Form.Item
-                    label="Trạng thái"
-                    name="status"
-                    initialValue={OrderStatus.PENDING}
-                    rules={[
-                      { required: true, message: "Vui lòng chọn trạng thái!" },
-                    ]}
-                  >
-                    <Select placeholder="Chọn trạng thái">
-                      {statusOptions.map((opt) => (
-                        <Option key={opt.value} value={opt.value}>
-                          <Tag color={opt.color}>{opt.label}</Tag>
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
+                {mode === "update" && (
+                  <Col span={8}>
+                    <Form.Item label="Trạng thái" required>
+                      <StatusStepper
+                        form={form}
+                        products={products}
+                        message={message}
+                        modal={modal}
+                      />
+                    </Form.Item>{" "}
+                    <Form.Item name="status" hidden>
+                      <Input />
+                    </Form.Item>
+                    <Form.Item
+                      name="isDepositPaid"
+                      valuePropName="checked"
+                      hidden
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                )}
               </Row>
             </div>
 
@@ -1544,6 +1672,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                     workflows={workflows}
                     staff={staff}
                     departments={departments}
+                    status={form.getFieldValue("status") || OrderStatus.PENDING}
                   />
                 ))}
               </div>
@@ -1654,7 +1783,12 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                             formatter={(v) =>
                               `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                             }
-                            parser={(v) => v!.replace(/,/g, "")}
+                            parser={(value) => {
+                              const parsed = Number(
+                                value?.replace(/,/g, "") || 0
+                              );
+                              return parsed as any;
+                            }}
                             className="w-full"
                           />
                         </Form.Item>
@@ -1842,5 +1976,103 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
     );
   }
 );
+
+const statusSequence = [
+  OrderStatus.PENDING,
+  OrderStatus.CONFIRMED,
+  OrderStatus.IN_PROGRESS,
+  OrderStatus.ON_HOLD,
+  OrderStatus.COMPLETED,
+];
+
+const StatusStepper = ({ form, products, message, modal }: any) => {
+  const currentStatus = Form.useWatch("status", form) || OrderStatus.PENDING;
+  const isDepositPaid = Form.useWatch("isDepositPaid", form);
+
+  const currentIndex = statusSequence.indexOf(currentStatus);
+  const nextStatus =
+    currentIndex < statusSequence.length - 1
+      ? statusSequence[currentIndex + 1]
+      : null;
+
+  const handleAdvanceStatus = () => {
+    if (!nextStatus) return;
+
+    // Validation before moving to CONFIRMED
+    if (nextStatus === OrderStatus.CONFIRMED) {
+      if (products.some((p: ProductData) => p.images.length === 0)) {
+        message.error(
+          "Vui lòng tải lên ít nhất một ảnh cho mỗi sản phẩm trước khi xác nhận."
+        );
+        return;
+      }
+      if (!isDepositPaid) {
+        message.error("Vui lòng xác nhận khách hàng đã đặt cọc.");
+        return;
+      }
+    }
+
+    // Validation before moving to COMPLETED
+    if (
+      nextStatus === OrderStatus.COMPLETED &&
+      currentStatus === OrderStatus.ON_HOLD
+    ) {
+      if (
+        products.some(
+          (p: ProductData) => !p.imagesDone || p.imagesDone.length === 0
+        )
+      ) {
+        message.error(
+          "Vui lòng tải lên ảnh sau khi hoàn thiện cho tất cả sản phẩm."
+        );
+        return;
+      }
+    }
+
+    form.setFieldsValue({ status: nextStatus });
+  };
+
+  const currentStatusInfo =
+    statusOptions.find((opt) => opt.value === currentStatus) ||
+    statusOptions[0];
+
+  return (
+    <div className="space-y-2 flex">
+      <Tag color={currentStatusInfo.color} className="text-sm px-2 py-1">
+        {currentStatusInfo.label}
+      </Tag>
+
+      {/* Deposit Paid Switch */}
+      <div className="flex items-center gap-2">
+        {(currentStatus === OrderStatus.PENDING ||
+          currentStatus === OrderStatus.CONFIRMED) && (
+          <Form.Item
+            name="isDepositPaid"
+            valuePropName="checked"
+            className="mb-0"
+            noStyle
+          >
+            <Switch
+              size="small"
+              checkedChildren="Đã cọc"
+              unCheckedChildren="Chưa cọc"
+            />
+          </Form.Item>
+        )}
+
+        {nextStatus && (
+          <Button
+            onClick={handleAdvanceStatus}
+            size="small"
+            type="primary"
+            htmlType="submit"
+          >
+            {statusOptions.find((opt) => opt.value === nextStatus)?.label}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default OrderForm;

@@ -38,6 +38,7 @@ export interface FirebaseDepartments {
 // Workflow and Product data structures
 export interface WorkflowData {
   id: string;
+  departmentCode?: string;
   workflowCode: string[];
   workflowName: string[];
   members: string[];
@@ -51,6 +52,7 @@ export interface ProductData {
   price: number;
   commissionPercentage?: number; // Optional commission percentage for staff
   images: (UploadFile & { firebaseUrl?: string })[];
+  imagesDone?: (UploadFile & { firebaseUrl?: string })[];
   workflows: WorkflowData[];
 }
 export enum WorkflowStatus {
@@ -61,6 +63,7 @@ export enum WorkflowStatus {
 
 // Firebase storage data structures
 export interface FirebaseWorkflowData {
+  departmentCode?: string;
   workflowCode: string[];
   workflowName: string[];
   members: string[];
@@ -129,6 +132,7 @@ export interface FirebaseOrderData {
   deposit?: number;
   depositType?: "amount" | "percentage";
   depositAmount?: number;
+  isDepositPaid?: boolean;
   customerCode?: string;
   issues?: string[];
 }
@@ -154,6 +158,7 @@ export interface FormValues {
   totalAmount?: number;
   deposit?: number;
   depositType?: DiscountType;
+  isDepositPaid?: boolean;
   customerCode?: string;
 }
 
