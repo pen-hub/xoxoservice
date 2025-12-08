@@ -28,8 +28,8 @@ import {
 import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import type { Order, Staff } from "../../../../types/order";
-import { OrderStatus } from "../../../../types/order";
+import { OrderStatus, FirebaseOrderData } from "@/types/order";
+import { IMembers } from "@/types/members";
 
 const { Text, Title } = Typography;
 
@@ -38,6 +38,7 @@ const getStatusInfo = (status: OrderStatus) => {
     [OrderStatus.PENDING]: { color: "default", text: "Chờ xử lý" },
     [OrderStatus.CONFIRMED]: { color: "warning", text: "Đã xác nhận" },
     [OrderStatus.IN_PROGRESS]: { color: "processing", text: "Đang thực hiện" },
+    [OrderStatus.ON_HOLD]: { color: "orange", text: "Tạm giữ" },
     [OrderStatus.COMPLETED]: { color: "success", text: "Hoàn thành" },
     [OrderStatus.CANCELLED]: { color: "error", text: "Đã hủy" },
   };
@@ -48,9 +49,9 @@ export default function OrderListPage() {
   const { message, modal } = App.useApp();
   const router = useRouter();
   const { data: ordersData, isLoading: ordersLoading } =
-    useRealtimeList<Order>("xoxo/orders");
+    useRealtimeList<FirebaseOrderData>("xoxo/orders");
   const { data: staffData, isLoading: staffLoading } =
-    useRealtimeList<Staff>("xoxo/members");
+    useRealtimeList<IMembers>("xoxo/members");
 
   // Ensure data is always an array, never null
   const orders = ordersData || [];
@@ -59,12 +60,12 @@ export default function OrderListPage() {
 
   const staffMap = useMemo(() => {
     if (!staff || !Array.isArray(staff)) {
-      return {} as Record<string, Staff>;
+      return {} as Record<string, IMembers>;
     }
     return staff.reduce((acc, curr) => {
       acc[curr.id] = curr;
       return acc;
-    }, {} as Record<string, Staff>);
+    }, {} as Record<string, IMembers>);
   }, [staff]);
 
   const {
@@ -105,7 +106,7 @@ export default function OrderListPage() {
     router.push(`/sale/orders/${orderCode}`);
   };
 
-  const columns: TableColumnsType<Order> = [
+  const columns: TableColumnsType<FirebaseOrderData> = [
     {
       title: "Mã đơn hàng",
       dataIndex: "code",
@@ -116,7 +117,7 @@ export default function OrderListPage() {
         <Text
           strong
           className="cursor-pointer text-primary hover:underline"
-          onClick={() => handleViewDetails(record.id)}
+          onClick={() => handleViewDetails(record.code)}
         >
           {code}
         </Text>
@@ -204,13 +205,13 @@ export default function OrderListPage() {
                 key: "view",
                 label: "Xem chi tiết",
                 icon: <EyeOutlined />,
-                onClick: () => handleViewDetails(record.id),
+                onClick: () => handleViewDetails(record.code),
               },
               {
                 key: "edit",
                 label: "Chỉnh sửa",
                 icon: <EditOutlined />,
-                onClick: () => handleEdit(record.id),
+                onClick: () => handleEdit(record.code),
               },
               {
                 key: "delete",

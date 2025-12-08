@@ -1,4 +1,7 @@
+"use client";
+
 import { KanbanCard } from "@/components/KanbanCard";
+import { WorkflowUpdateModal } from "@/components/WorkflowUpdateModal";
 import WrapperContent from "@/components/WrapperContent";
 import { columnsKanban } from "@/configs/table";
 import { database } from "@/firebase";
@@ -6,13 +9,11 @@ import { useRealtimeList } from "@/firebase/hooks/useRealtimeList";
 import useFilter from "@/hooks/useFilter";
 import { IMembers } from "@/types/members";
 import {
-  DiscountType,
   FirebaseOrderData,
   FirebaseProductData,
   FirebaseStaff,
   FirebaseWorkflowData,
   OrderStatus,
-  ProductData,
 } from "@/types/order";
 import { PlusOutlined } from "@ant-design/icons";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
@@ -21,7 +22,6 @@ import "dayjs/locale/vi";
 import { ref, update } from "firebase/database";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
-import { StatusUpdateModal } from "@/components/StatusUpdateModal";
 
 const { Text, Title } = Typography;
 
@@ -44,6 +44,13 @@ interface Workflow {
   name: string;
 }
 
+// const priorityColors = {
+//   urgent: { color: "#ff4d4f", text: "Khẩn cấp" },
+//   high: { color: "#fa8c16", text: "Cao" },
+//   normal: { color: "#52c41a", text: "Bình thường" },
+//   low: { color: "#d9d9d9", text: "Thấp" },
+// };
+
 // Main Kanban Board Component
 interface KanbanBoardProps {
   currentUser?: {
@@ -58,6 +65,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   // Sử dụng useRealtimeList để lấy dữ liệu từ Firebase
   const { data: ordersData, isLoading: ordersLoading } =
     useRealtimeList<FirebaseOrderData>("xoxo/orders");
+  console.log("ordersData:", ordersData);
   const { data: membersData, isLoading: membersLoading } =
     useRealtimeList<FirebaseStaff>("xoxo/members");
   const { data: workflowsData, isLoading: workflowsLoading } =
@@ -68,13 +76,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const { query, updateQuery, updateQueries, applyFilter, reset } = useFilter({
     status: "all",
     memberId: "all",
+    // priority: "all",
   });
 
-  const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
-  const [orderToUpdateStatus, setOrderToUpdateStatus] = useState<
-    (FirebaseOrderData & { id: string; products: ProductData[] }) | null
+  const [editingOrder, setEditingOrder] = useState<
+    (FirebaseOrderData & { id: string }) | null
   >(null);
-  const [proposedNewStatus, setProposedNewStatus] = useState<OrderStatus | null>(null);
   const { message } = App.useApp();
 
   // Use only Firebase data with proper error handling
@@ -85,24 +92,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const order = {
         id: item.id,
         ...item.data,
-        products: Object.entries(item.data?.products || {}).map(([productId, productData]: [string, any]) => ({
-          id: productId,
-          name: productData.name,
-          quantity: productData.quantity,
-          price: productData.price || 0,
-          commissionPercentage: productData.commissionPercentage || 0,
-          images: productData.images || [],
-          imagesDone: productData.imagesDone || [],
-          workflows: Object.entries(productData.workflows || {}).map(([workflowId, workflowDetails]: [string, any]) => ({
-            id: workflowId,
-            departmentCode: workflowDetails.departmentCode,
-            workflowCode: workflowDetails.workflowCode || [],
-            workflowName: workflowDetails.workflowName || [],
-            members: workflowDetails.members || [],
-            isDone: workflowDetails.isDone || false,
-            updatedAt: workflowDetails.updatedAt,
-          })),
-        })) as ProductData[],
+        products: item.data?.products || {},
       };
 
       // Calculate total amount if missing
@@ -217,7 +207,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   // Handle drag end with Firebase update
-  const onDragEnd = useCallback(async (result: DragDropContextProps["onDragEnd"]) => {
+  const onDragEnd = useCallback(async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (
@@ -228,83 +218,42 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       return;
     }
 
-    const draggedOrder = workingOrders.find((order) => order.id === draggableId);
-    if (!draggedOrder) {
-      message.error("Không tìm thấy đơn hàng để cập nhật.");
-      return;
-    }
-
     const newStatus = destination.droppableId as OrderStatus;
 
-    // Set state to open the status update modal
-    setOrderToUpdateStatus(draggedOrder);
-    setProposedNewStatus(newStatus);
-    setIsStatusModalVisible(true);
-  }, [workingOrders, message]);
-
-  // Handler for when StatusUpdateModal confirms a status change
-  const handleStatusModalConfirm = useCallback(
-    async (
-      orderCode: string,
-      newStatus: OrderStatus,
-      isDepositPaid?: boolean,
-      deposit?: number,
-      depositType?: DiscountType
-    ) => {
-      try {
-        const updates: Partial<FirebaseOrderData> = { status: newStatus };
-        if (isDepositPaid !== undefined) {
-          updates.isDepositPaid = isDepositPaid;
-        }
-        if (deposit !== undefined) {
-          updates.deposit = deposit;
-        }
-        if (depositType !== undefined) {
-          updates.depositType = depositType;
-        }
-
-        // Recalculate depositAmount if necessary before saving
-        const currentOrder = workingOrders.find((o) => o.id === orderCode);
-        if (currentOrder) {
-          const subtotal = (currentOrder.products as ProductData[]).reduce((sum, p) => sum + p.price * p.quantity, 0);
-          const discountAmount = currentOrder.discountType === DiscountType.Percentage
-              ? (subtotal * (currentOrder.discount || 0)) / 100
-              : (currentOrder.discount || 0);
-          const orderTotal = subtotal - discountAmount + (currentOrder.shippingFee || 0);
-
-          if (depositType === DiscountType.Percentage && deposit !== undefined) {
-              updates.depositAmount = (orderTotal * deposit) / 100;
-          } else if (deposit !== undefined) {
-              updates.depositAmount = deposit;
-          }
-        }
-
-
-        await updateOrderInFirebase(orderCode, updates);
-        message.success(`Trạng thái đơn hàng ${orderCode} đã được cập nhật.`);
-      } catch (error) {
-        message.error("Không thể cập nhật trạng thái đơn hàng. Vui lòng thử lại.");
-        console.error("❌ Error confirming status change:", error);
-      } finally {
-        setIsStatusModalVisible(false);
-        setOrderToUpdateStatus(null);
-        setProposedNewStatus(null);
-      }
-    },
-    [message, workingOrders]
-  );
-
-  // Handler for when StatusUpdateModal is cancelled
-  const handleCancelStatusModal = useCallback(() => {
-    setIsStatusModalVisible(false);
-    setOrderToUpdateStatus(null);
-    setProposedNewStatus(null);
+    try {
+      // Update in Firebase immediately
+      await updateOrderInFirebase(draggableId, {
+        status: newStatus,
+      });
+      console.log("✅ Successfully moved order to", newStatus);
+    } catch (error) {
+      message.error("Không thể di chuyển đơn hàng. Vui lòng thử lại.");
+      console.error("❌ Failed to update order:", error);
+      // Could show error message to user here
+    }
   }, []);
 
   const handleEditOrder = (
-    order: (FirebaseOrderData & { id: string; products: ProductData[] }) | null
+    order: (FirebaseOrderData & { id: string }) | null
   ) => {
-    router.push(`/sale/orders/${order?.id}/update`); // Navigate to update page
+    setEditingOrder(order);
+  };
+
+  const handleSaveOrder = async (
+    orderCode: string,
+    updatedOrder: Partial<FirebaseOrderData>
+  ) => {
+    try {
+      await updateOrderInFirebase(orderCode, updatedOrder);
+      console.log("✅ Order saved to Firebase successfully");
+    } catch (error) {
+      console.error("❌ Failed to save order:", error);
+    }
+  };
+
+  const handleContactCustomer = (phone: string) => {
+    console.log("Contact customer:", phone);
+    // Open dialer or contact app
   };
 
   return (
@@ -317,7 +266,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             name: "Tạo đơn hàng",
             icon: <PlusOutlined />,
             type: "primary",
-                          onClick: () => router.push("/sale/orders/create"),          },
+            onClick: () => router.push("/orders/create"),
+          },
         ],
         searchInput: {
           placeholder: "Tìm kiếm đơn hàng, khách hàng...",
@@ -451,6 +401,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                       order={order}
                                       index={index}
                                       onEdit={handleEditOrder}
+                                      onContact={handleContactCustomer}
                                     />
                                   )
                                 )
@@ -468,18 +419,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </DragDropContext>
         </div>
 
-        {/* Status Update Modal */}
-        <StatusUpdateModal
-          visible={isStatusModalVisible}
-          order={orderToUpdateStatus}
-          products={orderToUpdateStatus?.products || []}
-          currentStatus={orderToUpdateStatus?.status || OrderStatus.PENDING}
-          proposedNextStatus={proposedNewStatus}
-          onConfirm={handleStatusModalConfirm}
-          onCancel={handleCancelStatusModal}
+        {/* Workflow Update Modal */}
+        <WorkflowUpdateModal
+          visible={!!editingOrder}
+          order={editingOrder}
+          onCancel={() => setEditingOrder(null)}
+          onSave={handleSaveOrder}
           members={members}
           workflows={workflows}
-          departments={departments}
         />
       </div>
     </WrapperContent>

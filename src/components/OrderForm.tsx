@@ -127,6 +127,114 @@ const statusOptions = [
   { value: "cancelled", label: "Đã hủy", color: "error" },
 ];
 
+const statusSequence = [
+  OrderStatus.PENDING,
+  OrderStatus.CONFIRMED,
+  OrderStatus.IN_PROGRESS,
+  OrderStatus.ON_HOLD,
+  OrderStatus.COMPLETED,
+];
+
+const StatusStepper = ({ form, products, message, modal }: any) => {
+  const currentStatus = Form.useWatch("status", form) || OrderStatus.PENDING;
+  const isDepositPaid = Form.useWatch("isDepositPaid", form);
+
+  const currentIndex = statusSequence.indexOf(currentStatus);
+  const nextStatus =
+    currentIndex < statusSequence.length - 1
+      ? statusSequence[currentIndex + 1]
+      : null;
+
+  const handleAdvanceStatus = () => {
+    if (!nextStatus) return;
+
+    modal.confirm({
+      title: "Xác nhận chuyển trạng thái",
+      content: `Bạn có chắc muốn chuyển trạng thái đơn hàng sang "${
+        statusOptions.find((opt) => opt.value === nextStatus)?.label
+      }"?`,
+      okText: "Xác nhận",
+      cancelText: "Hủy",
+      onOk: () => {
+        // Validation before moving to CONFIRMED
+        if (nextStatus === OrderStatus.CONFIRMED) {
+          if (products.some((p: ProductData) => p.images.length === 0)) {
+            message.error(
+              "Vui lòng tải lên ít nhất một ảnh cho mỗi sản phẩm trước khi xác nhận."
+            );
+            return;
+          }
+          if (!isDepositPaid) {
+            message.error("Vui lòng xác nhận khách hàng đã đặt cọc.");
+            return;
+          }
+        }
+
+        // Validation before moving to COMPLETED
+        if (
+          nextStatus === OrderStatus.COMPLETED &&
+          currentStatus === OrderStatus.ON_HOLD
+        ) {
+          if (
+            products.some(
+              (p: ProductData) => !p.imagesDone || p.imagesDone.length === 0
+            )
+          ) {
+            message.error(
+              "Vui lòng tải lên ảnh sau khi hoàn thiện cho tất cả sản phẩm."
+            );
+            return;
+          }
+        }
+
+        form.setFieldsValue({ status: nextStatus }); // Update form state
+        form.submit(); // Trigger onFinish of the parent form
+      },
+    });
+  };
+
+  const currentStatusInfo =
+    statusOptions.find((opt) => opt.value === currentStatus) ||
+    statusOptions[0];
+
+  return (
+    <div className="space-y-2 flex">
+      <Tag color={currentStatusInfo.color} className="text-sm px-2 py-1">
+        {currentStatusInfo.label}
+      </Tag>
+
+      {/* Deposit Paid Switch */}
+      <div className="flex items-center gap-2">
+        {(currentStatus === OrderStatus.PENDING ||
+          currentStatus === OrderStatus.CONFIRMED) && (
+          <Form.Item
+            name="isDepositPaid"
+            valuePropName="checked"
+            className="mb-0"
+            noStyle
+          >
+            <Switch
+              size="small"
+              checkedChildren="Đã cọc"
+              unCheckedChildren="Chưa cọc"
+            />
+          </Form.Item>
+        )}
+
+        {nextStatus && (
+          <Button
+            onClick={handleAdvanceStatus} // No htmlType="submit" here
+            size="small"
+            type="primary"
+          >
+            {statusOptions.find((opt) => opt.value === nextStatus)?.label}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
   product,
   onUpdate,
@@ -961,7 +1069,10 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
 
       setSubmitting(true);
       const database = getDatabase();
-      let customerCodeToSave = values.customerCode;
+      let customerCodeToSave =
+        mode === "update"
+          ? orderDataRef.current?.customerCode
+          : values.customerCode;
 
       try {
         // New Customer Validation and Creation
@@ -1268,6 +1379,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
             const orderRef = dbRef(database, `xoxo/orders/${orderCode}`);
             onValue(orderRef, (snapshot) => {
               const orderData = snapshot.val();
+              console.log("orderData:", orderData);
               if (orderData) {
                 populateFormWithOrderData(orderData);
                 orderDataRef.current = orderData;
@@ -1976,103 +2088,5 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
     );
   }
 );
-
-const statusSequence = [
-  OrderStatus.PENDING,
-  OrderStatus.CONFIRMED,
-  OrderStatus.IN_PROGRESS,
-  OrderStatus.ON_HOLD,
-  OrderStatus.COMPLETED,
-];
-
-const StatusStepper = ({ form, products, message, modal }: any) => {
-  const currentStatus = Form.useWatch("status", form) || OrderStatus.PENDING;
-  const isDepositPaid = Form.useWatch("isDepositPaid", form);
-
-  const currentIndex = statusSequence.indexOf(currentStatus);
-  const nextStatus =
-    currentIndex < statusSequence.length - 1
-      ? statusSequence[currentIndex + 1]
-      : null;
-
-  const handleAdvanceStatus = () => {
-    if (!nextStatus) return;
-
-    // Validation before moving to CONFIRMED
-    if (nextStatus === OrderStatus.CONFIRMED) {
-      if (products.some((p: ProductData) => p.images.length === 0)) {
-        message.error(
-          "Vui lòng tải lên ít nhất một ảnh cho mỗi sản phẩm trước khi xác nhận."
-        );
-        return;
-      }
-      if (!isDepositPaid) {
-        message.error("Vui lòng xác nhận khách hàng đã đặt cọc.");
-        return;
-      }
-    }
-
-    // Validation before moving to COMPLETED
-    if (
-      nextStatus === OrderStatus.COMPLETED &&
-      currentStatus === OrderStatus.ON_HOLD
-    ) {
-      if (
-        products.some(
-          (p: ProductData) => !p.imagesDone || p.imagesDone.length === 0
-        )
-      ) {
-        message.error(
-          "Vui lòng tải lên ảnh sau khi hoàn thiện cho tất cả sản phẩm."
-        );
-        return;
-      }
-    }
-
-    form.setFieldsValue({ status: nextStatus });
-  };
-
-  const currentStatusInfo =
-    statusOptions.find((opt) => opt.value === currentStatus) ||
-    statusOptions[0];
-
-  return (
-    <div className="space-y-2 flex">
-      <Tag color={currentStatusInfo.color} className="text-sm px-2 py-1">
-        {currentStatusInfo.label}
-      </Tag>
-
-      {/* Deposit Paid Switch */}
-      <div className="flex items-center gap-2">
-        {(currentStatus === OrderStatus.PENDING ||
-          currentStatus === OrderStatus.CONFIRMED) && (
-          <Form.Item
-            name="isDepositPaid"
-            valuePropName="checked"
-            className="mb-0"
-            noStyle
-          >
-            <Switch
-              size="small"
-              checkedChildren="Đã cọc"
-              unCheckedChildren="Chưa cọc"
-            />
-          </Form.Item>
-        )}
-
-        {nextStatus && (
-          <Button
-            onClick={handleAdvanceStatus}
-            size="small"
-            type="primary"
-            htmlType="submit"
-          >
-            {statusOptions.find((opt) => opt.value === nextStatus)?.label}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-};
 
 export default OrderForm;
