@@ -85,7 +85,7 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
       value: id,
       label: workflow.name,
     }));
-  
+
     // Custom tag render for displaying member names in Select
     const customTagRender = (props: any) => {
       const { label, value, closable, onClose } = props;
@@ -94,6 +94,18 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
       return (
         <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
           {memberName}
+        </Tag>
+      );
+    };
+
+    // Custom tag render for displaying workflow fullLabel in Select
+    const customWorkflowTagRender = (props: any) => {
+      const { label, value, closable, onClose } = props;
+      const workflowData = workflows[value];
+      const workflowLabel = workflowData ? `${workflowData.name} (${value})` : value;
+      return (
+        <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
+          {workflowLabel}
         </Tag>
       );
     };
@@ -398,6 +410,9 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                     key: "departmentCode",
                                     width: "20%",
                                     render: (value, record, index) => {
+                                      console.log("Phòng ban - record.departmentCode:", record.departmentCode);
+                                      console.log("Phòng ban - departments prop:", departments);
+
                                       // Get departments already used in other rows
                                       const selectedDepartmentCodes = Object.entries(product.workflows || {})
                                         .filter(([_, wf], i) => i !== index)
@@ -412,6 +427,8 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                               label: departments[code].name,
                                             }))
                                         : [];
+
+                                      console.log("Phòng ban - departmentOptions:", departmentOptions);
 
                                       return (
                                         <Select
@@ -443,6 +460,8 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                     key: "workflowCode",
                                     width: "30%",
                   render: (value, record, index) => {
+                    console.log("Công đoạn - record.workflowCode:", record.workflowCode);
+
                     const departmentCode = record.departmentCode;
                     const availableWorkflows = departmentCode && workflows
                       ? Object.entries(workflows)
@@ -457,10 +476,12 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                           }))
                       : [];
 
+                    console.log("Công đoạn - availableWorkflows:", availableWorkflows);
+
                     return (
                       <Select
                         mode="multiple"
-                        maxTagCount={1}
+                        maxTagCount={2}
                         value={value}
                         placeholder={
                           departmentCode
@@ -480,6 +501,7 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                         disabled={!departmentCode}
                         showSearch
                         optionFilterProp="children"
+                        tagRender={customWorkflowTagRender}
                       >
                         {availableWorkflows.map((opt) => (
                           <Select.Option key={opt.value} value={opt.value}>
