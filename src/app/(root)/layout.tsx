@@ -254,7 +254,13 @@ export default function DashboardLayout({
           <Link href="/dashboard">
             <span className="flex gap-2 items-center">
               <DashboardOutlined />{" "}
-              <span className="text-white">Dashboard</span>
+              <span
+                className={
+                  pathname === "/dashboard" ? "font-bold text-primary" : ""
+                }
+              >
+                Dashboard
+              </span>
             </span>
           </Link>
         ),
@@ -266,7 +272,13 @@ export default function DashboardLayout({
         title: (
           <Link href={getBreadcrumbTitle(pathname).path}>
             <span className="flex gap-2 items-center">
-              <span className="text-white">
+              <span
+                className={
+                  pathname === getBreadcrumbTitle(pathname).path
+                    ? "font-bold text-primary"
+                    : ""
+                }
+              >
                 {getBreadcrumbTitle(pathname).title}
               </span>
             </span>
@@ -528,7 +540,11 @@ export default function DashboardLayout({
                 ...(pageTitle
                   ? [
                       {
-                        title: <span className="font-bold">{pageTitle}</span>,
+                        title: (
+                          <span className="font-bold text-primary">
+                            {pageTitle}
+                          </span>
+                        ),
                       },
                     ]
                   : []),
