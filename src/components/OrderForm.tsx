@@ -106,22 +106,25 @@ const statusOptions = [
   {
     value: "confirmed",
     label: "Xác nhận",
-
+name: "Đã xác nhận",
     color: "warning",
   },
   {
     value: "in_progress",
     label: "Thực hiện",
+name: "Đang thực hiện",
     color: "processing",
   },
   {
     value: "on_hold",
     label: "Thanh toán",
+name: "Chờ thanh toán",
     color: "warning",
   },
   {
     value: "completed",
     label: "Hoàn thành",
+name: "Đã thanh toán",
     color: "success",
   },
   { value: "cancelled", label: "Đã hủy", color: "error" },
@@ -134,6 +137,53 @@ const statusSequence = [
   OrderStatus.ON_HOLD,
   OrderStatus.COMPLETED,
 ];
+
+// Get available status options based on current status (prevent reverting to previous statuses)
+const getAvailableStatusOptions = (currentStatus: OrderStatus) => {
+  return [
+    {
+      value: OrderStatus.PENDING,
+      label: "Chờ xử lý",
+      name: "Chờ xử lý",
+      color: "default",
+      disabled: currentStatus !== OrderStatus.PENDING
+    },
+    {
+      value: OrderStatus.CONFIRMED,
+      label: "Đã xác nhận",
+      name: "Đã xác nhận",
+      color: "warning",
+      disabled: statusSequence.indexOf(currentStatus) >= 1
+    },
+    {
+      value: OrderStatus.IN_PROGRESS,
+      label: "Đang thực hiện",
+      name: "Đang thực hiện",
+      color: "processing",
+      disabled: statusSequence.indexOf(currentStatus) >= 2
+    },
+    {
+      value: OrderStatus.ON_HOLD,
+      label: "Tạm giữ",
+      name: "Chờ thanh toán",
+      color: "warning",
+      disabled: statusSequence.indexOf(currentStatus) >= 3
+    },
+    {
+      value: OrderStatus.COMPLETED,
+      label: "Hoàn thành",
+      name: "Đã thanh toán",
+      color: "success",
+      disabled: statusSequence.indexOf(currentStatus) >= 4
+    },
+    {
+      value: OrderStatus.CANCELLED,
+      label: "Đã hủy",
+      color: "error",
+      disabled: false, // Cancelled is always available
+    },
+  ];
+};
 
 const StatusStepper = ({ form, products, message, modal }: any) => {
   const currentStatus = Form.useWatch("status", form) || OrderStatus.PENDING;
@@ -189,8 +239,8 @@ const StatusStepper = ({ form, products, message, modal }: any) => {
 
         // Validation before moving to ON_HOLD
         if (nextStatus === OrderStatus.ON_HOLD) {
-          const allWorkflowsDone = products.every(product =>
-              Object.values(product.workflows || {}).every(workflow => workflow.isDone)
+          const allWorkflowsDone = products.every((product: ProductData) =>
+              Object.values(product.workflows || {}).every((workflow: any) => workflow.isDone)
           );
           if (!allWorkflowsDone) {
               message.error("Đội kỹ thuật chưa làm xong!");
@@ -209,9 +259,9 @@ const StatusStepper = ({ form, products, message, modal }: any) => {
     statusOptions[0];
 
   return (
-    <div className="space-y-2 flex">
+    <div className="space-y-2 flex items-center gap-4">
       <Tag color={currentStatusInfo.color} className="text-sm px-2 py-1">
-        {currentStatusInfo.label}
+        {currentStatusInfo.name}
       </Tag>
 
       {/* Deposit Paid Switch */}

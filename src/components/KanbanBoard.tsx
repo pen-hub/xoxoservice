@@ -13,6 +13,7 @@ import {
   FirebaseProductData,
   FirebaseStaff,
   FirebaseWorkflowData,
+  FirebaseDepartments,
   OrderStatus,
 } from "@/types/order";
 import { PlusOutlined } from "@ant-design/icons";
@@ -42,6 +43,7 @@ const updateOrderInFirebase = async (
 
 interface Workflow {
   name: string;
+  department?: string;
 }
 
 // const priorityColors = {
@@ -70,6 +72,18 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     useRealtimeList<FirebaseStaff>("xoxo/members");
   const { data: workflowsData, isLoading: workflowsLoading } =
     useRealtimeList<Workflow>("xoxo/workflows");
+  const { data: departmentsData, isLoading: departmentsLoading } =
+    useRealtimeList<any>("xoxo/departments");
+
+  // Convert departments data to object format expected by WorkflowUpdateModal
+  const departments = useMemo(() => {
+    if (!departmentsData || departmentsData.length === 0) return {};
+    const departmentsMap: FirebaseDepartments = {};
+    departmentsData.forEach((item: any) => {
+      departmentsMap[item.id] = item.data || item;
+    });
+    return departmentsMap;
+  }, [departmentsData]);
   const router = useRouter();
 
   // Use useFilter hook for filtering
@@ -122,7 +136,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           id: item.id,
           name: item.data?.name || item.name,
           role: item.data?.role || "worker",
-          // Add other member fields as needed
+          code: item.data?.code || item.code || "",
+          phone: item.data?.phone || item.phone || "",
+          email: item.data?.email || item.email || "",
+          date_of_birth: item.data?.date_of_birth || item.date_of_birth || "",
         };
         return acc;
       },
@@ -135,7 +152,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (!workflowsData || workflowsData.length === 0) return {};
     const workflowMap: Record<string, Workflow> = {};
     workflowsData.forEach((item: any) => {
-      workflowMap[item.id] = { name: item.data?.name || item.name };
+      workflowMap[item.id] = { name: item.data?.name || item.name, department: item.data?.department || item.department };
     });
     return workflowMap;
   }, [workflowsData]);
@@ -258,7 +275,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <WrapperContent<FirebaseOrderData>
-      isLoading={ordersLoading || membersLoading || workflowsLoading}
+      isLoading={ordersLoading || membersLoading || workflowsLoading || departmentsLoading}
       isEmpty={workingOrders.length === 0}
       header={{
         buttonEnds: [
@@ -427,6 +444,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onSave={handleSaveOrder}
           members={members}
           workflows={workflows}
+          departments={departments}
         />
       </div>
     </WrapperContent>
