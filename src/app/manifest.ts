@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'XOXO',
     description: 'XOXO Progressive Web App',
     start_url: '/auth',
-    display: 'standalone',
+    display: 'minimal-ui',
     background_color: '#ffffff',
     theme_color: '#000000',
     icons: [
@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/logo.png',
         sizes: '512x512',
         type: 'image/png',
-      },
-    ],
+      }
+    ]
   }
 }

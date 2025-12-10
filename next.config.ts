@@ -7,9 +7,13 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   disable: process.env.NEXT_ENV === 'development',
-//   fallbacks: {
-//     document: '/offline.html',
-//   },
+  fallbacks: {
+    document: '/offline.html',
+    image: '/logo.png',
+    audio: '/logo.png',
+    video: '/logo.png',
+    font: '/logo.png',
+  },
 });
 const nextConfig: NextConfig = {
   reactStrictMode: true,
