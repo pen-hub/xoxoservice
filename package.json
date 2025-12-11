@@ -7,12 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "db:generate": "npx prisma generate",
-    "db:migrate": "npx prisma migrate",
-    "db:deploy": "npx prisma migrate deploy",
-    "seed": "npx tsx prisma/seed.ts --cwd",
-    "prepare": "husky"
+    "lint": "eslint"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
