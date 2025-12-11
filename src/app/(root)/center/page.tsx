@@ -176,14 +176,16 @@ export default function CenterPage() {
                           border: `1px solid ${token.colorBorder}`,
                           transition: "all 0.3s",
                         }}
-                        bodyStyle={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: "24px 16px",
-                          textAlign: "center",
-                          minHeight: 120,
+                        styles={{
+                          body: {
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "24px 16px",
+                            textAlign: "center",
+                            minHeight: 120,
+                          },
                         }}
                       >
                         <span

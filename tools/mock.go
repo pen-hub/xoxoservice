@@ -666,8 +666,11 @@ func generateMockData(config MockConfig) MockData {
 
 	for i := 0; i < config.NumOrders; i++ {
 		orderID := fmt.Sprintf("ORD_%03d", i+1)
-		orderCode := generateCode("ORD", i)
-		orderCodes = append(orderCodes, orderCode)
+		orderCode := fmt.Sprintf("ORD%04d%02d%02d%03d",
+			time.Now().Year(),
+			int(time.Now().Month()),
+			time.Now().Day(),
+			i+1)
 
 		createdBy := salesMemberIDs[rand.Intn(len(salesMemberIDs))]
 		createdByName := data.Xoxo.Members[createdBy].Name

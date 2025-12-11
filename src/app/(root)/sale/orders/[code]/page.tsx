@@ -579,6 +579,7 @@ export default function OrderDetailPage() {
             name: "Xuất PDF",
             icon: <DownloadOutlined />,
             type: "default" as const,
+            can: true,
             onClick: () => {
               if (order) {
                 generatePDF();
@@ -594,6 +595,7 @@ export default function OrderDetailPage() {
                   name: "Gọi điện",
                   icon: <PhoneOutlined />,
                   type: "default" as const,
+                  can: true,
                   onClick: () => (window.location.href = `tel:${order?.phone}`),
                 },
               ]
@@ -604,12 +606,14 @@ export default function OrderDetailPage() {
                   name: "Cập nhật trạng thái",
                   icon: <SaveOutlined />,
                   type: "primary" as const,
+                  can: true,
                   onClick: () => setStatusModalVisible(true),
                 },
                 {
                   name: "Chỉnh sửa",
                   icon: <EditOutlined />,
                   type: "default" as const,
+                  can: true,
                   onClick: () =>
                     router.push(`/sale/orders/${orderCode}/update`),
                 },
