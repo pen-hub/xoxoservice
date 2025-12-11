@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/firebase/provider";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
-import { Alert, Button, Divider, Form, Input } from "antd";
+import { Alert, Button, Form, Input } from "antd";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -115,7 +115,7 @@ export function LoginForm({ setView }: LoginFormProps) {
         </Form.Item>
       </Form>
 
-      <Divider>hoặc</Divider>
+      {/* <Divider>hoặc</Divider>
 
       <div className="text-center space-y-2">
         <p className="text-muted-foreground">
@@ -135,7 +135,7 @@ export function LoginForm({ setView }: LoginFormProps) {
             Quên mật khẩu?
           </button>
         </p>
-      </div>
+      </div> */}
     </div>
   );
 }
