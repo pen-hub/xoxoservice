@@ -7,9 +7,10 @@ import WrapperContent from "@/components/WrapperContent";
 import { env } from "@/env";
 import { useRealtimeDoc, useRealtimeValue } from "@/firebase/hooks/useRealtime";
 import { useUser } from "@/firebase/provider";
+import useGenerateOrderPdf from "@/hooks/useGenerateOrderPdf";
 import { AppointmentService } from "@/services/appointmentService";
 import { FeedbackService } from "@/services/feedbackService";
-import { FollowUpService } from "@/services/followUpService";
+import { FinanceService } from "@/services/financeService";
 import { MessageService } from "@/services/messageService";
 import { RefundService } from "@/services/refundService";
 import { WarrantyService } from "@/services/warrantyService";
@@ -113,6 +114,23 @@ export default function OrderDetailPage() {
   const { data: membersData, isLoading: membersLoading } = useRealtimeValue<{
     [key: string]: IMembers;
   }>("xoxo/members");
+
+  // Lấy thông tin nhân viên tư vấn
+  const consultantInfo = useMemo(() => {
+    if (!order?.consultantId || !membersData) return undefined;
+    const consultant = membersData[order.consultantId];
+    if (!consultant) return undefined;
+    return {
+      code: consultant.code,
+      phone: consultant.phone,
+    };
+  }, [order?.consultantId, membersData]);
+
+  // Hook để generate PDF
+  const { isLoading: isGeneratingPdf, generatePDF } = useGenerateOrderPdf({
+    order: order || ({} as FirebaseOrderData),
+    consultantInfo,
+  });
 
   // Load feedbacks for this order
   useEffect(() => {
@@ -341,16 +359,6 @@ export default function OrderDetailPage() {
         order.status !== OrderStatus.COMPLETED
       ) {
         try {
-          // Create follow-up schedules
-          await FollowUpService.createFollowUpSchedules(
-            orderCode,
-            orderCode,
-            order.customerCode,
-            order.customerName,
-            order.phone,
-            new Date().getTime()
-          );
-
           // Create warranty for each product
           if (order.products) {
             for (const [productId, product] of Object.entries(order.products)) {
@@ -393,6 +401,50 @@ export default function OrderDetailPage() {
           );
         } catch (msgError) {
           console.error("Failed to send order confirmation message:", msgError);
+          // Don't block status update
+        }
+
+        // Tạo phiếu thu tiền cọc khi đơn hàng chuyển sang CONFIRMED
+        try {
+          const updatedOrder = {
+            ...order,
+            status: selectedStatus,
+            updatedAt: new Date().getTime(),
+          };
+          await FinanceService.createDepositTransaction(
+            updatedOrder,
+            orderCode,
+            user?.uid,
+            user?.displayName || user?.email || "Người dùng hiện tại"
+          );
+        } catch (financeError) {
+          console.error("Failed to create deposit transaction:", financeError);
+          // Don't block status update
+        }
+      }
+
+      // Tạo phiếu thu số tiền còn lại khi đơn hàng chuyển sang COMPLETED
+      if (
+        selectedStatus === OrderStatus.COMPLETED &&
+        order.status !== OrderStatus.COMPLETED
+      ) {
+        try {
+          const updatedOrder = {
+            ...order,
+            status: selectedStatus,
+            updatedAt: new Date().getTime(),
+          };
+          await FinanceService.createRemainingAmountTransaction(
+            updatedOrder,
+            orderCode,
+            user?.uid,
+            user?.displayName || user?.email || "Người dùng hiện tại"
+          );
+        } catch (financeError) {
+          console.error(
+            "Failed to create remaining amount transaction:",
+            financeError
+          );
           // Don't block status update
         }
       }
@@ -523,6 +575,19 @@ export default function OrderDetailPage() {
       header={{
         buttonBackTo: "/sale/orders",
         buttonEnds: [
+          {
+            name: "Xuất PDF",
+            icon: <DownloadOutlined />,
+            type: "default" as const,
+            onClick: () => {
+              if (order) {
+                generatePDF();
+              } else {
+                antdMessage.warning("Đang tải dữ liệu đơn hàng...");
+              }
+            },
+            isLoading: isGeneratingPdf,
+          },
           ...(order?.phone
             ? [
                 {

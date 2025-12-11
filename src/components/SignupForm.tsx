@@ -43,7 +43,7 @@ export function SignupForm({ setView }: SignupFormProps) {
         displayName: values.displayName,
       });
 
-      // router.push("/dashboard");
+      // router.push("/center");
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(getErrorMessage(err));

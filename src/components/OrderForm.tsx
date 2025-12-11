@@ -1,6 +1,7 @@
 "use client";
 
 import { useUser } from "@/firebase/provider";
+import { SalaryService } from "@/services/salaryService";
 import {
   CustomerSource,
   CustomerSourceOptions,
@@ -23,7 +24,7 @@ import {
   type WorkflowData,
 } from "@/types/order";
 import { calculateOrderTotals } from "@/utils/calcultateOrderTotals";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { genCode } from "@/utils/genCode";
 import { getBase64 } from "@/utils/getBase64";
 import { groupMembersByRole } from "@/utils/membersMapRole";
 import {
@@ -39,6 +40,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -807,7 +809,7 @@ const IssuesList = ({ form }: { form: any }) => {
           <IssueInputItem
             key={
               issueIdsRef.current[index] ||
-              `issue-${index}-${generateRandomCode("REACTKEY")}`
+              `issue-${index}-${genCode("REACTKEY")}`
             }
             issue={issue}
             index={index}
@@ -832,9 +834,13 @@ const IssuesList = ({ form }: { form: any }) => {
 const StaffInformationSection = ({
   memberOptions,
   form,
+  staff,
+  products,
 }: {
   memberOptions: any;
   form: any;
+  staff: FirebaseStaff;
+  products: ProductData[];
 }) => {
   return (
     <div className="">
@@ -876,6 +882,54 @@ const StaffInformationSection = ({
               ))}
             </Select>
           </Form.Item>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) =>
+              prevValues.consultantId !== currentValues.consultantId
+            }
+          >
+            {({ getFieldValue }) => {
+              const consultantId = getFieldValue("consultantId");
+              const consultant = consultantId ? staff[consultantId] : null;
+              if (!consultantId) {
+                return (
+                  <Alert
+                    message="Chưa chọn nhân viên tư vấn"
+                    description="Hoa hồng sẽ được tự động thiết lập khi chọn nhân viên tư vấn"
+                    type="info"
+                    showIcon
+                    className="mt-2"
+                  />
+                );
+              }
+              // Lấy trực tiếp từ consultant data
+              const bonusPercentage = consultant?.bonusPercentage ?? 0;
+              if (bonusPercentage > 0) {
+                return (
+                  <Alert
+                    title={`Thưởng doanh thu: ${bonusPercentage}%`}
+                    description={`Nhân viên tư vấn ${
+                      consultant?.name || "đã chọn"
+                    } có cấu hình thưởng doanh thu ${bonusPercentage}%. Hoa hồng sẽ được tự động áp dụng cho đơn hàng.`}
+                    type="success"
+                    showIcon
+                    className="mt-2"
+                  />
+                );
+              }
+              return (
+                <Alert
+                  title="Nhân viên tư vấn chưa có cấu hình thưởng doanh thu"
+                  description={`Nhân viên tư vấn ${
+                    consultant?.name || "đã chọn"
+                  } chưa được thiết lập thưởng doanh thu. Hoa hồng sẽ là 0%.`}
+                  type="warning"
+                  showIcon
+                  className="mt-2"
+                />
+              );
+            }}
+          </Form.Item>
         </Col>
       </Row>
       <Form.Item label="Ghi chú đơn hàng" name="notes">
@@ -894,7 +948,9 @@ const StaffInformationSection = ({
   );
 };
 
-const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
+const ProductCard: React.FC<
+  ProductCardProps & { status: OrderStatus; mode?: string }
+> = ({
   product,
   onUpdate,
   onRemove,
@@ -904,6 +960,7 @@ const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
   staff,
   departments,
   status,
+  mode,
 }) => {
   const { message } = App.useApp();
 
@@ -1022,6 +1079,7 @@ const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
                 Số lượng <Text type="danger">*</Text>
               </Text>
               <InputNumber
+                style={{ width: "100%" }}
                 min={1}
                 placeholder="1"
                 value={product.quantity}
@@ -1055,7 +1113,7 @@ const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
                   const parsed = Number(value?.replace(/,/g, "") || 0);
                   return parsed as any;
                 }}
-                className="w-full"
+                style={{ width: "100%" }}
                 status={!product.price || product.price < 0 ? "error" : ""}
               />
               {(!product.price || product.price < 0) && (
@@ -1063,38 +1121,6 @@ const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
                   Vui lòng nhập giá sản phẩm
                 </Text>
               )}
-            </div>
-          </Col>
-          <Col xs={24} md={12} lg={5}>
-            <div className="space-y-2 flex flex-col">
-              <Text strong className="text-gray-700">
-                Hoa hồng (%){" "}
-                <Text type="secondary" className="text-xs">
-                  (Tùy chọn)
-                </Text>
-              </Text>
-              <InputNumber
-                min={0}
-                max={100}
-                placeholder="0"
-                value={product.commissionPercentage || 0}
-                onChange={(value) =>
-                  updateProduct("commissionPercentage", value || 0)
-                }
-                formatter={(value) => `${value}%`}
-                parser={(value) => Number(value?.replace("%", "") || 0) as any}
-                className="w-full"
-                step={0.1}
-                precision={1}
-              />
-              <Text type="secondary" className="text-xs">
-                {product.commissionPercentage && product.price
-                  ? `≈ ${(
-                      (product.price * (product.commissionPercentage || 0)) /
-                      100
-                    ).toLocaleString("vi-VN")} VNĐ`
-                  : "Nhập % hoa hồng"}
-              </Text>
             </div>
           </Col>
         </Row>
@@ -1169,7 +1195,7 @@ const ProductCard: React.FC<ProductCardProps & { status: OrderStatus }> = ({
               </div>
             )}
           </Upload>
-          {product.images.length === 0 && (
+          {product.images.length === 0 && mode === "update" && (
             <Text type="danger" className="text-xs">
               Vui lòng tải lên ít nhất 1 ảnh sản phẩm
             </Text>
@@ -1478,6 +1504,129 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
       }
     }, [mode]);
 
+    // Auto-load commission percentage from consultant's salary config
+    const consultantId = Form.useWatch("consultantId", form);
+    const isInitialLoadRef = useRef(true);
+    const previousConsultantIdRef = useRef<string | undefined>(undefined);
+    const previousStaffRef = useRef<FirebaseStaff>({});
+
+    // Load commission when consultantId changes
+    useEffect(() => {
+      // Skip on initial load (when order data is being populated)
+      if (isInitialLoadRef.current) {
+        isInitialLoadRef.current = false;
+        previousConsultantIdRef.current = consultantId;
+        previousStaffRef.current = staff;
+        return;
+      }
+
+      // Only auto-set commission if consultantId actually changed
+      if (consultantId === previousConsultantIdRef.current) {
+        return;
+      }
+
+      previousConsultantIdRef.current = consultantId;
+
+      const loadCommissionFromConsultant = async () => {
+        if (!consultantId) {
+          // Clear commission if no consultant selected
+          form.setFieldsValue({ commissionPercentage: 0 });
+          return;
+        }
+
+        try {
+          // Ưu tiên lấy từ staff data (nhanh hơn, không cần async)
+          const consultant = staff[consultantId];
+          let commissionPercentage = 0;
+
+          console.log("🔍 Loading commission for consultant:", consultantId);
+          console.log("🔍 Staff data:", consultant);
+          console.log("🔍 Available staff keys:", Object.keys(staff));
+
+          if (
+            consultant?.bonusPercentage !== undefined &&
+            consultant.bonusPercentage > 0
+          ) {
+            commissionPercentage = consultant.bonusPercentage;
+            console.log(
+              "✅ Loaded commission from staff:",
+              commissionPercentage
+            );
+          } else {
+            // Fallback: Lấy từ SalaryService nếu không có trong staff data
+            console.log(
+              "⚠️ Consultant not found in staff, trying SalaryService..."
+            );
+            const salaryData = await SalaryService.getSalaryByMemberId(
+              consultantId
+            );
+            console.log("🔍 SalaryService data:", salaryData);
+            if (
+              salaryData?.bonusPercentage !== undefined &&
+              salaryData.bonusPercentage > 0
+            ) {
+              commissionPercentage = salaryData.bonusPercentage;
+              console.log(
+                "✅ Loaded commission from SalaryService:",
+                commissionPercentage
+              );
+            } else {
+              console.log("⚠️ No commission found, setting to 0");
+            }
+          }
+
+          // Set commission at order level
+          form.setFieldsValue({ commissionPercentage });
+          console.log(
+            "✅ Set commissionPercentage to form:",
+            commissionPercentage
+          );
+
+          // Verify it was set
+          const verifyValue = form.getFieldValue("commissionPercentage");
+          console.log("✅ Verified form value:", verifyValue);
+        } catch (error) {
+          console.error("❌ Error loading commission percentage:", error);
+          // On error, set to 0
+          form.setFieldsValue({ commissionPercentage: 0 });
+        }
+      };
+
+      loadCommissionFromConsultant();
+    }, [consultantId, form, staff]);
+
+    // Also load commission when staff data is loaded/updated (in case consultantId was set before staff was loaded)
+    useEffect(() => {
+      // Skip if no consultant selected
+      if (!consultantId) {
+        return;
+      }
+
+      const consultant = staff[consultantId];
+      const previousConsultant = previousStaffRef.current[consultantId];
+
+      // If staff data is now available and commission changed, update form
+      if (
+        consultant?.bonusPercentage !== undefined &&
+        consultant.bonusPercentage !== previousConsultant?.bonusPercentage
+      ) {
+        const currentCommission =
+          form.getFieldValue("commissionPercentage") || 0;
+        // Only update if the new value is different from current form value
+        if (consultant.bonusPercentage !== currentCommission) {
+          console.log(
+            "✅ Staff data updated, reloading commission:",
+            consultant.bonusPercentage
+          );
+          form.setFieldsValue({
+            commissionPercentage: consultant.bonusPercentage,
+          });
+        }
+      }
+
+      previousStaffRef.current = { ...staff };
+    }, [staff, consultantId, form]);
+
     // Calculate total amount and update form when dependencies change
     const totalAmount = React.useMemo(() => {
       const subtotal = products.reduce(
@@ -1508,7 +1657,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
         form.setFieldsValue({
           createdBy: user.uid,
           createdByName: user.displayName,
-          code: generateRandomCode("ORD_"),
+          code: genCode("ORD_"),
           orderDate: dayjs(),
         });
       } else {
@@ -1537,6 +1686,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
         deliveryDate: dayjs(orderData.deliveryDate),
         createdBy: orderData.createdBy,
         consultantId: orderData.consultantId || "",
+        commissionPercentage: orderData.commissionPercentage || 0,
         notes: orderData.notes || "",
         discount: orderData.discount || 0,
         discountType: orderData.discountType || DiscountType.Amount,
@@ -1556,7 +1706,6 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           name: productData.name,
           quantity: productData.quantity,
           price: productData.price || 0,
-          commissionPercentage: productData.commissionPercentage || 0,
           images:
             productData.images?.map((img: any, index: number) => ({
               uid: img.uid || `img-${index}`,
@@ -1597,13 +1746,12 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
     const orderDataRef = useRef<any>(null);
 
     const addProduct = () => {
-      const newProductId = generateRandomCode("PRO_");
+      const newProductId = genCode("PRO_");
       const newProduct: ProductData = {
         id: newProductId,
         name: "",
         quantity: 1,
         price: 0,
-        commissionPercentage: 0,
         images: [],
         imagesDone: [],
         workflows: [],
@@ -1760,7 +1908,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           }
 
           // Create new customer
-          const newCustomerCode = generateRandomCode("CUST_");
+          const newCustomerCode = genCode("CUST_");
           const now = new Date().getTime();
           const newCustomer: Customer = {
             code: newCustomerCode,
@@ -1877,7 +2025,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           products.some((p) => p.images.length === 0)
         ) {
           if (!orderIssues.includes("pending_images")) {
-            orderIssues.push("pending_images");
+            orderIssues.push("Chờ lấy ảnh");
           }
         }
 
@@ -1918,6 +2066,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
             consultantId: values.consultantId,
             consultantName: staff[values.consultantId]?.name || "",
           }),
+          commissionPercentage: values.commissionPercentage || 0,
           notes: values.notes || "",
           discount: discount || 0,
           discountType: discountType,
@@ -1930,7 +2079,6 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
               name: product.name,
               quantity: product.quantity,
               price: product.price,
-              commissionPercentage: product.commissionPercentage || 0,
               images: product.images.map((img: any) => ({
                 uid: img.uid,
                 name: img.name,
@@ -1971,6 +2119,16 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           message.success("Đơn hàng đã được tạo thành công!");
           onSuccess?.(orderData.code);
         } else {
+          if (
+            Object.values(orderData.products).some(
+              (product) => product.images.length === 0
+            )
+          ) {
+            message.warning(
+              "Vui lòng tải lên ít nhất 1 ảnh cho tất cả sản phẩm!"
+            );
+            return;
+          }
           const orderRef = dbRef(database, `xoxo/orders/${orderCode}`);
           await update(orderRef, orderData);
           message.success("Đơn hàng đã được cập nhật thành công!");
@@ -1983,7 +2141,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           setProducts([]);
           setCustomerType("new");
           form.setFieldsValue({
-            code: generateRandomCode("ORD_"),
+            code: genCode("ORD_"),
             createdBy: user?.uid,
             createdByName:
               user?.displayName || user?.email || "Người dùng hiện tại",
@@ -2006,7 +2164,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           createdBy: user.uid,
           createdByName:
             user.displayName || user.email || "Người dùng hiện tại",
-          code: generateRandomCode("ORD_"),
+          code: genCode("ORD_"),
         });
       }
     }, [user, form, mode]);
@@ -2050,8 +2208,27 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
               if (orderData) {
                 populateFormWithOrderData(orderData);
                 orderDataRef.current = orderData;
+                // Reset initial load flag after data is loaded
+                isInitialLoadRef.current = true;
+                previousConsultantIdRef.current =
+                  orderData.consultantId || undefined;
+                // If order has consultantId, trigger commission load after a short delay
+                if (orderData.consultantId && staff[orderData.consultantId]) {
+                  setTimeout(() => {
+                    const consultant = staff[orderData.consultantId];
+                    if (consultant?.bonusPercentage) {
+                      form.setFieldsValue({
+                        commissionPercentage: consultant.bonusPercentage,
+                      });
+                    }
+                  }, 100);
+                }
               }
             });
+          } else if (mode === "create") {
+            // Reset for create mode
+            isInitialLoadRef.current = true;
+            previousConsultantIdRef.current = undefined;
           }
 
           setLoading(false);
@@ -2106,6 +2283,8 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
             <StaffInformationSection
               memberOptions={memberOptions}
               form={form}
+              staff={staff}
+              products={products}
             />
           </Card>
 
@@ -2153,6 +2332,7 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
                     staff={staff}
                     departments={departments}
                     status={form.getFieldValue("status") || OrderStatus.PENDING}
+                    mode={mode}
                   />
                 ))}
               </div>
@@ -2450,6 +2630,9 @@ const OrderForm = forwardRef<ChildHandle, OrderFormProps>(
           </div>
         </div>
         <Form.Item name="totalAmount" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="commissionPercentage" hidden>
           <Input />
         </Form.Item>
       </Form>

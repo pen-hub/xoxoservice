@@ -2,12 +2,14 @@
 
 import LoaderApp from "@/components/LoaderApp";
 import { allMenuItems, breadcrumbMap } from "@/configs/menu";
+import ROLES_CONFIG from "@/configs/role";
 import { useAuth, useUser } from "@/firebase/provider";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import ProtectedRoutes from "@/middlewares/ProtectedRoutes";
 import { useTheme } from "@/providers/AppThemeProvider";
 import { useSiteTitleStore } from "@/stores/setSiteTitle";
+import { RoleLabels } from "@/types/enum";
 import {
-  DashboardOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -29,7 +31,7 @@ import { signOut } from "firebase/auth";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -57,6 +59,100 @@ export default function DashboardLayout({
   const isMobile = useIsMobile();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [allowedPaths, setAllowedPaths] = useState<string[]>([]);
+
+  // Get user role from token
+  useEffect(() => {
+    if (!user || isUserLoading) return;
+
+    const getRole = async () => {
+      try {
+        const token = await user.getIdTokenResult();
+        const role = token.claims.role as string;
+        setUserRole(role);
+
+        const paths = ROLES_CONFIG[role as keyof typeof ROLES_CONFIG] || [];
+        setAllowedPaths(paths);
+      } catch (error) {
+        console.error("Error getting user role:", error);
+      }
+    };
+
+    getRole();
+  }, [user, isUserLoading]);
+
+  // Filter menu items based on role
+  const filteredMenuItems = useMemo(() => {
+    if (!userRole || allowedPaths.length === 0) {
+      return [];
+    }
+
+    // Helper function to check if a path is allowed
+    const isPathAllowed = (path: string | undefined): boolean => {
+      if (!path) return false;
+      if (allowedPaths.includes("all")) return true;
+
+      // Normalize path (remove trailing slash, ensure starts with /)
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+      const cleanPath =
+        normalizedPath.endsWith("/") && normalizedPath !== "/"
+          ? normalizedPath.slice(0, -1)
+          : normalizedPath;
+
+      // Check exact match or if path starts with any allowed path (prefix matching)
+      return allowedPaths.some((allowedPath) => {
+        if (allowedPath === "all") return true;
+
+        // Normalize allowed path
+        const normalizedAllowed = allowedPath.startsWith("/")
+          ? allowedPath
+          : `/${allowedPath}`;
+        const cleanAllowed =
+          normalizedAllowed.endsWith("/") && normalizedAllowed !== "/"
+            ? normalizedAllowed.slice(0, -1)
+            : normalizedAllowed;
+
+        // Exact match
+        if (cleanPath === cleanAllowed) return true;
+
+        // Prefix match: if menu path starts with allowed path + "/"
+        // Example: "/sale/orders" matches allowed path "/sale"
+        if (cleanPath.startsWith(cleanAllowed + "/")) return true;
+
+        return false;
+      });
+    };
+
+    return allMenuItems
+      .map((item) => {
+        // If item has direct href, check if it's allowed
+        if (item.href) {
+          return isPathAllowed(item.href) ? item : null;
+        }
+
+        // If item has children, filter children and keep parent if any child is allowed
+        if (item.children && item.children.length > 0) {
+          const allowedChildren = item.children.filter((child) =>
+            isPathAllowed(child.href)
+          );
+
+          // Keep parent menu if it has at least one allowed child
+          if (allowedChildren.length > 0) {
+            // Return a new object with filtered children (don't mutate original)
+            return {
+              ...item,
+              children: allowedChildren,
+            };
+          }
+          return null;
+        }
+
+        // If no href and no children, exclude it
+        return null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [userRole, allowedPaths]);
 
   // All other hooks must be called before any conditional returns
   const getBreadcrumbTitle = (path: string) => {
@@ -85,7 +181,7 @@ export default function DashboardLayout({
     return { title: "Trang chủ", path: "/dashboard", parent: null };
   };
 
-  const menuItems = allMenuItems;
+  const menuItems = filteredMenuItems;
 
   const antdMenuItems: MenuProps["items"] = menuItems.map((item, idx) => {
     // Use href path as the stable key for both root items and children
@@ -253,18 +349,20 @@ export default function DashboardLayout({
   };
 
   const getBreadcrumbItems = () => {
+    const rootPath = "/center";
+    const rootTitle = "Trung tâm";
+
     const items = [
       {
         title: (
-          <Link href="/dashboard">
+          <Link href={rootPath}>
             <span className="flex gap-2 items-center">
-              <DashboardOutlined />{" "}
               <span
                 className={
-                  pathname === "/dashboard" ? "font-bold text-primary" : ""
+                  pathname === rootPath ? "font-bold text-primary" : ""
                 }
               >
-                Trang chủ
+                {rootTitle}
               </span>
             </span>
           </Link>
@@ -272,34 +370,41 @@ export default function DashboardLayout({
       },
     ];
 
-    if (pathname !== "/dashboard") {
-      const parent = getBreadcrumbTitle(pathname).parent;
-      if (parent) {
+    // Only add additional breadcrumb items if not on root path
+    if (pathname !== rootPath && pathname !== "/dashboard") {
+      const breadcrumbInfo = getBreadcrumbTitle(pathname);
+
+      // Add parent if exists and different from root
+      if (breadcrumbInfo.parent && breadcrumbInfo.parent !== rootTitle) {
         items.push({
           title: (
             <span className="flex gap-2 items-center">
-              <span className="">{parent}</span>
+              <span className="">{breadcrumbInfo.parent}</span>
             </span>
           ),
         });
       }
-      items.push({
-        title: (
-          <Link href={getBreadcrumbTitle(pathname).path}>
-            <span className="flex gap-2 items-center">
-              <span
-                className={
-                  pathname === getBreadcrumbTitle(pathname).path
-                    ? "font-bold text-primary"
-                    : ""
-                }
-              >
-                {getBreadcrumbTitle(pathname).title}
+
+      // Add current page if different from root
+      if (breadcrumbInfo.title && breadcrumbInfo.title !== rootTitle) {
+        items.push({
+          title: (
+            <Link href={breadcrumbInfo.path}>
+              <span className="flex gap-2 items-center">
+                <span
+                  className={
+                    pathname === breadcrumbInfo.path
+                      ? "font-bold text-primary"
+                      : ""
+                  }
+                >
+                  {breadcrumbInfo.title}
+                </span>
               </span>
-            </span>
-          </Link>
-        ),
-      });
+            </Link>
+          ),
+        });
+      }
     }
 
     return items;
@@ -506,7 +611,8 @@ export default function DashboardLayout({
                   />
                   <div className="flex flex-col">
                     <Text strong style={{ color: "white" }}>
-                      {user?.displayName || user?.email}
+                      {user?.displayName || user?.email}{" "}
+                      {`(${RoleLabels[userRole as keyof typeof RoleLabels]})`}
                     </Text>
                     <Text
                       style={{
@@ -539,7 +645,7 @@ export default function DashboardLayout({
             borderLeft: `1px solid ${token.colorBorder}`,
             position: "sticky",
             top: 0,
-            zIndex: 10,
+            zIndex: 20,
           }}
         >
           <div className="flex gap-3 items-center">
@@ -584,7 +690,11 @@ export default function DashboardLayout({
                   }}
                 />
                 <div className="flex flex-col">
-                  <Text strong>{user?.displayName || user?.email}</Text>
+                  <Text strong>
+                    {" "}
+                    {user?.displayName || user?.email}{" "}
+                    {`(${RoleLabels[userRole as keyof typeof RoleLabels]})`}
+                  </Text>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {user?.email}
                   </Text>
@@ -615,10 +725,10 @@ export default function DashboardLayout({
               <LoaderApp />
             </div>
           ) : (
-            <>
+            <ProtectedRoutes>
               {children}
               {modal}
-            </>
+            </ProtectedRoutes>
           )}
         </Content>
       </Layout>

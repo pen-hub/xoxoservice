@@ -1,17 +1,17 @@
 import {
-    MessageEventType,
-    MessageLog,
-    MessageTemplate
+  MessageEventType,
+  MessageLog,
+  MessageTemplate
 } from "@/types/message";
+import { genCode } from "@/utils/genCode";
 import {
-    get,
-    getDatabase,
-    onValue,
-    push,
-    ref,
-    remove,
-    set,
-    update,
+  get,
+  getDatabase,
+  onValue,
+  ref,
+  remove,
+  set,
+  update,
 } from "firebase/database";
 
 const db = getDatabase();
@@ -73,17 +73,16 @@ export class MessageService {
     template: Omit<MessageTemplate, "id" | "createdAt" | "updatedAt">
   ): Promise<MessageTemplate> {
     const now = new Date().getTime();
-    const templateRef = push(ref(db, MESSAGE_TEMPLATES_PATH));
-    const templateId = templateRef.key!;
+    const templateCode = genCode("TMP_");
 
     const templateData: MessageTemplate = {
       ...template,
-      id: templateId,
+      id: templateCode,
       createdAt: now,
       updatedAt: now,
     };
 
-    await set(templateRef, removeUndefined(templateData));
+    await set(ref(db, `${MESSAGE_TEMPLATES_PATH}/${templateCode}`), removeUndefined(templateData));
     return templateData;
   }
 
@@ -180,12 +179,11 @@ export class MessageService {
     // });
 
     const now = new Date().getTime();
-    const logRef = push(ref(db, MESSAGE_LOGS_PATH));
-    const logId = logRef.key!;
+    const logCode = genCode("LOG_");
 
     // Simulate sending (in production, check Zalo API response)
     const logData: MessageLog = {
-      id: logId,
+      id: logCode,
       templateId: templateId || "",
       eventType,
       recipientPhone: phone,
@@ -197,7 +195,7 @@ export class MessageService {
       orderCode,
     };
 
-    await set(logRef, removeUndefined(logData));
+    await set(ref(db, `${MESSAGE_LOGS_PATH}/${logCode}`), removeUndefined(logData));
     return logData;
   }
 
@@ -303,3 +301,5 @@ export class MessageService {
     );
   }
 }
+
+

@@ -1,16 +1,16 @@
 import {
-    WarrantyRecord
+  WarrantyRecord
 } from "@/types/warranty";
+import { genCode } from "@/utils/genCode";
 import dayjs from "dayjs";
 import {
-    get,
-    getDatabase,
-    onValue,
-    push,
-    ref,
-    remove,
-    set,
-    update,
+  get,
+  getDatabase,
+  onValue,
+  ref,
+  remove,
+  set,
+  update,
 } from "firebase/database";
 
 const db = getDatabase();
@@ -104,14 +104,13 @@ export class WarrantyService {
     createdByName?: string
   ): Promise<WarrantyRecord> {
     const now = Date.now();
-    const warrantyRef = push(ref(db, WARRANTY_PATH));
-    const warrantyId = warrantyRef.key!;
+    const warrantyCode = genCode("WAR_");
 
     const startDate = now;
     const endDate = dayjs(now).add(warrantyPeriodMonths, "month").valueOf();
 
     const warrantyData: WarrantyRecord = {
-      id: warrantyId,
+      id: warrantyCode,
       orderId,
       orderCode,
       productId,
@@ -129,7 +128,7 @@ export class WarrantyService {
       createdByName,
     };
 
-    await set(warrantyRef, removeUndefined(warrantyData));
+    await set(ref(db, `${WARRANTY_PATH}/${warrantyCode}`), removeUndefined(warrantyData));
     return warrantyData;
   }
 
@@ -137,17 +136,16 @@ export class WarrantyService {
     warranty: Omit<WarrantyRecord, "id" | "createdAt" | "updatedAt">
   ): Promise<WarrantyRecord> {
     const now = new Date().getTime();
-    const warrantyRef = push(ref(db, WARRANTY_PATH));
-    const warrantyId = warrantyRef.key!;
+    const warrantyCode = genCode("WAR_");
 
     const warrantyData: WarrantyRecord = {
       ...warranty,
-      id: warrantyId,
+      id: warrantyCode,
       createdAt: now,
       updatedAt: now,
     };
 
-    await set(warrantyRef, removeUndefined(warrantyData));
+    await set(ref(db, `${WARRANTY_PATH}/${warrantyCode}`), removeUndefined(warrantyData));
     return warrantyData;
   }
 
@@ -181,3 +179,5 @@ export class WarrantyService {
     return unsubscribe;
   }
 }
+
+

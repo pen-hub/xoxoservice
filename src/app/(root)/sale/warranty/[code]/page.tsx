@@ -3,6 +3,7 @@
 import WrapperContent from "@/components/WrapperContent";
 import { env } from "@/env";
 import { useRealtimeDoc, useRealtimeValue } from "@/firebase/hooks/useRealtime";
+import useGenerateWarrantyPdf from "@/hooks/useGenerateWarrantyPdf";
 import { IMembers } from "@/types/members";
 import { FirebaseWorkflowData } from "@/types/order";
 import { WarrantyClaimStatus, type WarrantyClaim } from "@/types/warrantyClaim";
@@ -73,6 +74,49 @@ export default function WarrantyClaimDetailPage() {
   const { data: membersData, isLoading: membersLoading } = useRealtimeValue<{
     [key: string]: IMembers;
   }>("xoxo/members");
+
+  // Lấy thông tin nhân viên tư vấn
+  const consultantInfo = useMemo(() => {
+    if (!claim?.consultantId || !membersData) return undefined;
+    const consultant = membersData[claim.consultantId];
+    if (!consultant) return undefined;
+    return {
+      code: consultant.code,
+      phone: consultant.phone,
+    };
+  }, [claim?.consultantId, membersData]);
+
+  // Lấy thông tin warranty (nếu có)
+  const warrantyInfo = useMemo(() => {
+    if (!claim?.originalOrderCode) {
+      // Default values nếu không có originalOrderCode
+      return {
+        period: 12,
+        startDate: claim?.createdAt,
+        endDate: claim?.createdAt
+          ? dayjs(claim.createdAt).add(12, "months").valueOf()
+          : undefined,
+      };
+    }
+    // Sẽ load từ WarrantyService nếu cần, nhưng tạm thời dùng default
+    // Vì WarrantyService.getByOrderCode là async, ta dùng default values
+    return {
+      period: 12,
+      startDate: claim.createdAt,
+      endDate: claim.createdAt
+        ? dayjs(claim.createdAt).add(12, "months").valueOf()
+        : undefined,
+    };
+  }, [claim]);
+
+  // Hook để generate PDF
+  const { isLoading: isGeneratingPdf, generatePDF } = useGenerateWarrantyPdf({
+    warrantyClaim: claim || ({} as WarrantyClaim),
+    consultantInfo,
+    warrantyPeriod: warrantyInfo.period,
+    warrantyStartDate: warrantyInfo.startDate,
+    warrantyEndDate: warrantyInfo.endDate,
+  });
 
   const membersMap = useMemo(() => {
     if (!membersData || !Object.keys(membersData).length)
@@ -248,6 +292,19 @@ export default function WarrantyClaimDetailPage() {
       header={{
         buttonBackTo: "/sale/warranty",
         buttonEnds: [
+          {
+            name: "Xuất PDF",
+            icon: <DownloadOutlined />,
+            type: "default" as const,
+            onClick: () => {
+              if (claim) {
+                generatePDF();
+              } else {
+                antdMessage.warning("Đang tải dữ liệu phiếu bảo hành...");
+              }
+            },
+            isLoading: isGeneratingPdf,
+          },
           ...(claim?.phone
             ? [
                 {

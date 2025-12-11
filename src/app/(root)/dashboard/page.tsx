@@ -1,12 +1,29 @@
 "use client";
 
-import FollowUpReminder from "@/components/FollowUpReminder";
+import { useRealtimeList } from "@/firebase/hooks/useRealtimeList";
+import { useUser } from "@/firebase/provider";
+import { AppointmentService } from "@/services/appointmentService";
+import { FeedbackService } from "@/services/feedbackService";
+import { InventoryService } from "@/services/inventoryService";
+import { RefundService } from "@/services/refundService";
+import { WarrantyClaimService } from "@/services/warrantyClaimService";
+import { WarrantyService } from "@/services/warrantyService";
+import type { Appointment } from "@/types/appointment";
+import type { CustomerFeedback } from "@/types/feedback";
+import { FirebaseOrderData } from "@/types/order";
+import type { RefundRequest } from "@/types/refund";
+import type { WarrantyRecord } from "@/types/warranty";
+import type { WarrantyClaim } from "@/types/warrantyClaim";
 import {
+  AppstoreOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  CommentOutlined,
+  DollarOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
   ProjectOutlined,
+  SafetyCertificateOutlined,
   SyncOutlined,
   TeamOutlined,
   TrophyOutlined,
@@ -18,8 +35,12 @@ import {
   Badge,
   Card,
   Col,
+  DatePicker,
+  Empty,
+  Form,
   Progress,
   Row,
+  Skeleton,
   Space,
   Statistic,
   Table,
@@ -28,8 +49,14 @@ import {
   Timeline,
   Typography,
 } from "antd";
-import { useState } from "react";
+import dayjs, { Dayjs } from "dayjs";
+import "dayjs/locale/vi";
+import relativeTime from "dayjs/plugin/relativeTime";
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -45,7 +72,50 @@ import {
   YAxis,
 } from "recharts";
 
+// Extend dayjs with relativeTime plugin
+dayjs.extend(relativeTime);
+dayjs.locale("vi");
+
 const { Title, Text, Paragraph } = Typography;
+const { RangePicker } = DatePicker;
+
+// Date presets for RangePicker
+const rangePresets: {
+  label: string;
+  value: [Dayjs, Dayjs];
+}[] = [
+  { label: "Hôm nay", value: [dayjs(), dayjs()] },
+  {
+    label: "Tuần này",
+    value: [dayjs().startOf("week"), dayjs().endOf("week")],
+  },
+  {
+    label: "Tháng này",
+    value: [dayjs().startOf("month"), dayjs().endOf("month")],
+  },
+  {
+    label: "Tháng trước",
+    value: [
+      dayjs().subtract(1, "month").startOf("month"),
+      dayjs().subtract(1, "month").endOf("month"),
+    ],
+  },
+  {
+    label: "Quý này",
+    value: [
+      dayjs()
+        .month(Math.floor(dayjs().month() / 3) * 3)
+        .startOf("month"),
+      dayjs()
+        .month(Math.floor(dayjs().month() / 3) * 3 + 2)
+        .endOf("month"),
+    ],
+  },
+  {
+    label: "Năm này",
+    value: [dayjs().startOf("year"), dayjs().endOf("year")],
+  },
+];
 
 interface WorkflowProcess {
   id: string;
@@ -73,6 +143,18 @@ interface KanbanTask {
   dueDate: string;
 }
 
+// Convert Firebase order to display format
+interface DisplayOrder {
+  id: string;
+  code: string;
+  customer: string;
+  phone: string;
+  status: string;
+  totalAmount: number;
+  date: string;
+  createdAt: number;
+}
+
 interface RecentOrder {
   id: string;
   orderNumber: string;
@@ -80,286 +162,37 @@ interface RecentOrder {
   status: "processing" | "completed" | "pending";
   totalAmount: number;
   createdAt: string;
+  date: string; // Add date for filtering
+  branch: string; // Add branch for filtering
 }
 
-// Mock data cho thống kê
-const revenueStats = {
-  totalRevenue: 1250000000, // 1.25 tỷ VND
-  monthlyRevenue: 450000000, // 450 triệu VND
-  growth: 15.5, // %
-};
-
-const customerStats = {
-  newCustomers: 45,
-  totalCustomers: 1250,
-  growth: 8.2, // %
-};
-
-const orderStats = {
-  processingOrders: 23,
-  completedOrders: 156,
-  totalOrders: 179,
-};
-
-// Mock data cho charts
-const leadSourceData = [
-  { name: "Website", value: 35, color: "#0088FE" },
-  { name: "Facebook", value: 25, color: "#00C49F" },
-  { name: "Zalo", value: 20, color: "#FFBB28" },
-  { name: "Giới thiệu", value: 15, color: "#FF8042" },
-  { name: "Khác", value: 5, color: "#8884D8" },
-];
-
-const orderRateData = [
-  { month: "Tháng 1", completed: 120, total: 150 },
-  { month: "Tháng 2", completed: 135, total: 160 },
-  { month: "Tháng 3", completed: 140, total: 170 },
-  { month: "Tháng 4", completed: 150, total: 180 },
-  { month: "Tháng 5", completed: 160, total: 190 },
-  { month: "Tháng 6", completed: 155, total: 185 },
-  { month: "Tháng 7", completed: 170, total: 200 },
-  { month: "Tháng 8", completed: 180, total: 210 },
-  { month: "Tháng 9", completed: 175, total: 205 },
-  { month: "Tháng 10", completed: 190, total: 220 },
-  { month: "Tháng 11", completed: 200, total: 230 },
-  { month: "Tháng 12", completed: 210, total: 240 },
-];
-
-const revenueMonthlyData = [
-  { month: "T1", revenue: 320000000 },
-  { month: "T2", revenue: 380000000 },
-  { month: "T3", revenue: 350000000 },
-  { month: "T4", revenue: 420000000 },
-  { month: "T5", revenue: 390000000 },
-  { month: "T6", revenue: 410000000 },
-  { month: "T7", revenue: 440000000 },
-  { month: "T8", revenue: 460000000 },
-  { month: "T9", revenue: 430000000 },
-  { month: "T10", revenue: 480000000 },
-  { month: "T11", revenue: 470000000 },
-  { month: "T12", revenue: 450000000 },
-];
-
-const workingHoursData = [
-  { day: "T2", hours: 8, avg: 7 },
-  { day: "T3", hours: 7, avg: 7 },
-  { day: "T4", hours: 8, avg: 7 },
-  { day: "T5", hours: 8, avg: 7 },
-  { day: "T6", hours: 7, avg: 7 },
-  { day: "T7", hours: 6, avg: 7 },
-  { day: "CN", hours: 8, avg: 7 },
-];
-
+// Categories for statistics
 const projectCategories = [
-  { name: "Nghiên cứu", count: 42, color: "#FFB088" },
-  { name: "Marketing", count: 35, color: "#90D5FF" },
-  { name: "Vận hành", count: 58, color: "#FFE68C" },
-  { name: "Khách hàng", count: 47, color: "#95E1A4" },
-];
-
-const mockRecentOrders: RecentOrder[] = [
   {
-    id: "1",
-    orderNumber: "DH2024-001",
-    customer: "Công ty TNHH ABC",
-    status: "processing",
-    totalAmount: 25000000,
-    createdAt: "2 giờ trước",
+    name: "Đơn hàng",
+    count: 0, // Will be calculated from real data
+    color: "#1890ff",
+    icon: FileTextOutlined,
   },
   {
-    id: "2",
-    orderNumber: "DH2024-002",
-    customer: "Nguyễn Văn A",
-    status: "completed",
-    totalAmount: 15000000,
-    createdAt: "5 giờ trước",
+    name: "Bảo hành",
+    count: 0, // Will be calculated from real data
+    color: "#52c41a",
+    icon: SafetyCertificateOutlined,
   },
   {
-    id: "3",
-    orderNumber: "DH2024-003",
-    customer: "Trần Thị B",
-    status: "processing",
-    totalAmount: 30000000,
-    createdAt: "1 ngày trước",
+    name: "Feedback",
+    count: 0, // Will be calculated from real data
+    color: "#faad14",
+    icon: CommentOutlined,
   },
   {
-    id: "4",
-    orderNumber: "DH2024-004",
-    customer: "Công ty XYZ",
-    status: "pending",
-    totalAmount: 45000000,
-    createdAt: "2 ngày trước",
-  },
-  {
-    id: "5",
-    orderNumber: "DH2024-005",
-    customer: "Lê Văn C",
-    status: "completed",
-    totalAmount: 20000000,
-    createdAt: "3 ngày trước",
+    name: "Hoàn tiền",
+    count: 0, // Will be calculated from real data
+    color: "#ff4d4f",
+    icon: DollarOutlined,
   },
 ];
-
-const mockProcesses: WorkflowProcess[] = [
-  {
-    id: "1",
-    name: "Quy trình sản xuất đơn hàng #2024-001",
-    status: "active",
-    totalTasks: 15,
-    completedTasks: 8,
-    workflows: 5,
-    members: 6,
-    discussions: 23,
-    avgCompletionTime: 48,
-    currentWorkflow: "Cắt vải",
-    progress: 53,
-    priority: "high",
-    lastUpdate: "2 giờ trước",
-  },
-  {
-    id: "2",
-    name: "Quy trình kiểm tra chất lượng tháng 12",
-    status: "active",
-    totalTasks: 10,
-    completedTasks: 10,
-    workflows: 4,
-    members: 3,
-    discussions: 15,
-    avgCompletionTime: 24,
-    currentWorkflow: "Hoàn thành",
-    progress: 100,
-    priority: "medium",
-    lastUpdate: "5 giờ trước",
-  },
-  {
-    id: "3",
-    name: "Quy trình nhập nguyên vật liệu",
-    status: "blocked",
-    totalTasks: 8,
-    completedTasks: 3,
-    workflows: 3,
-    members: 4,
-    discussions: 8,
-    avgCompletionTime: 36,
-    currentWorkflow: "Kiểm tra kho",
-    progress: 38,
-    priority: "high",
-    lastUpdate: "1 ngày trước",
-  },
-  {
-    id: "4",
-    name: "Quy trình đào tạo nhân viên mới",
-    status: "active",
-    totalTasks: 12,
-    completedTasks: 7,
-    workflows: 6,
-    members: 8,
-    discussions: 31,
-    avgCompletionTime: 72,
-    currentWorkflow: "Đào tạo thực hành",
-    progress: 58,
-    priority: "medium",
-    lastUpdate: "3 giờ trước",
-  },
-  {
-    id: "5",
-    name: "Quy trình bảo trì máy móc định kỳ",
-    status: "pending",
-    totalTasks: 6,
-    completedTasks: 0,
-    workflows: 3,
-    members: 2,
-    discussions: 2,
-    avgCompletionTime: 16,
-    currentWorkflow: "Chưa bắt đầu",
-    progress: 0,
-    priority: "low",
-    lastUpdate: "2 ngày trước",
-  },
-];
-
-const mockKanbanTasks: Record<string, KanbanTask[]> = {
-  pending: [
-    {
-      id: "t1",
-      title: "Chuẩn bị nguyên vật liệu",
-      process: "Đơn hàng #2024-001",
-      assignee: "Nguyễn Văn A",
-      workflow: "Chuẩn bị",
-      priority: "high",
-      dueDate: "03/12/2024",
-    },
-    {
-      id: "t2",
-      title: "Kiểm tra máy cắt",
-      process: "Bảo trì định kỳ",
-      assignee: "Trần Thị B",
-      workflow: "Chuẩn bị",
-      priority: "low",
-      dueDate: "05/12/2024",
-    },
-  ],
-  inProgress: [
-    {
-      id: "t3",
-      title: "Cắt vải theo mẫu",
-      process: "Đơn hàng #2024-001",
-      assignee: "Lê Văn C",
-      workflow: "Đang thực hiện",
-      priority: "high",
-      dueDate: "03/12/2024",
-    },
-    {
-      id: "t4",
-      title: "Đào tạo kỹ thuật may",
-      process: "Đào tạo nhân viên",
-      assignee: "Phạm Thị D",
-      workflow: "Đang thực hiện",
-      priority: "medium",
-      dueDate: "04/12/2024",
-    },
-    {
-      id: "t5",
-      title: "Kiểm tra chất lượng da",
-      process: "Nhập NVL",
-      assignee: "Hoàng Văn E",
-      workflow: "Đang thực hiện",
-      priority: "high",
-      dueDate: "03/12/2024",
-    },
-  ],
-  review: [
-    {
-      id: "t6",
-      title: "Kiểm tra sản phẩm hoàn thiện",
-      process: "Đơn hàng #2024-001",
-      assignee: "Vũ Thị F",
-      workflow: "Đang kiểm tra",
-      priority: "high",
-      dueDate: "04/12/2024",
-    },
-  ],
-  completed: [
-    {
-      id: "t7",
-      title: "Đóng gói sản phẩm",
-      process: "Kiểm tra chất lượng",
-      assignee: "Đỗ Văn G",
-      workflow: "Hoàn thành",
-      priority: "medium",
-      dueDate: "02/12/2024",
-    },
-    {
-      id: "t8",
-      title: "Xuất kho nguyên vật liệu",
-      process: "Đơn hàng #2024-001",
-      assignee: "Bùi Thị H",
-      workflow: "Hoàn thành",
-      priority: "medium",
-      dueDate: "01/12/2024",
-    },
-  ],
-};
 
 const getStatusColor = (status: string) => {
   const colors = {
@@ -400,28 +233,359 @@ const getPriorityText = (priority: string) => {
 };
 
 export default function DashboardPage() {
+  const pathname = usePathname();
   const [activeTab, setActiveTab] = useState("overview");
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>([
+    dayjs().startOf("month"),
+    dayjs().endOf("month"),
+  ]);
+  const [filterForm] = Form.useForm();
+  const { user, isUserLoading, userError } = useUser();
 
-  // Tính toán thống kê tổng quan
-  const totalProcesses = mockProcesses.length;
-  const activeProcesses = mockProcesses.filter(
-    (p) => p.status === "active"
-  ).length;
-  const completedProcesses = mockProcesses.filter(
-    (p) => p.status === "completed"
-  ).length;
-  const blockedProcesses = mockProcesses.filter(
-    (p) => p.status === "blocked"
-  ).length;
-  const totalTasks = mockProcesses.reduce((sum, p) => sum + p.totalTasks, 0);
-  const completedTasks = mockProcesses.reduce(
-    (sum, p) => sum + p.completedTasks,
-    0
+  // Fetch real data from Firebase
+  const { data: ordersData, isLoading: ordersLoading } =
+    useRealtimeList<FirebaseOrderData>("xoxo/orders");
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<CustomerFeedback[]>([]);
+  const [refunds, setRefunds] = useState<RefundRequest[]>([]);
+  const [warranties, setWarranties] = useState<WarrantyRecord[]>([]);
+  const [warrantyClaims, setWarrantyClaims] = useState<WarrantyClaim[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [
+          appointmentsData,
+          materialsData,
+          feedbacksData,
+          refundsData,
+          warrantiesData,
+          warrantyClaimsData,
+        ] = await Promise.all([
+          AppointmentService.getAll(),
+          InventoryService.getAllMaterials(),
+          FeedbackService.getAll(),
+          RefundService.getAll(),
+          WarrantyService.getAll(),
+          WarrantyClaimService.getAll(),
+        ]);
+        setAppointments(appointmentsData);
+        setMaterials(materialsData);
+        setFeedbacks(feedbacksData);
+        setRefunds(refundsData);
+        setWarranties(warrantiesData);
+        setWarrantyClaims(warrantyClaimsData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    // Subscribe to real-time updates
+    const unsubAppt = AppointmentService.onSnapshot((data) => {
+      setAppointments(data);
+    });
+    const unsubFeedback = FeedbackService.onSnapshot((data) => {
+      setFeedbacks(data);
+    });
+    const unsubRefund = RefundService.onSnapshot((data) => {
+      setRefunds(data);
+    });
+    const unsubWarranty = WarrantyService.onSnapshot((data) => {
+      setWarranties(data);
+    });
+    const unsubWarrantyClaim = WarrantyClaimService.onSnapshot((data) => {
+      setWarrantyClaims(data);
+    });
+
+    return () => {
+      unsubAppt?.();
+      unsubFeedback?.();
+      unsubRefund?.();
+      unsubWarranty?.();
+      unsubWarrantyClaim?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const data = await user?.getIdTokenResult();
+      console.log(data, pathname);
+    })();
+  }, [isUserLoading, userError]);
+
+  // Convert Firebase orders to display format
+  const displayOrders = useMemo<DisplayOrder[]>(() => {
+    if (!ordersData) return [];
+    return ordersData
+      .map((item) => ({
+        id: item.id,
+        code: item.data.code || item.id,
+        customer: item.data.customerName || "N/A",
+        phone: item.data.phone || "-",
+        status: item.data.status || "pending",
+        totalAmount: item.data.totalAmount || 0,
+        date: item.data.orderDate
+          ? dayjs(item.data.orderDate).format("YYYY-MM-DD")
+          : dayjs().format("YYYY-MM-DD"),
+        createdAt: item.data.createdAt || item.data.orderDate || Date.now(),
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }, [ordersData]);
+
+  // Filter data based on date range and branch
+  const filteredOrders = useMemo(() => {
+    let filtered = [...displayOrders];
+
+    // Filter by date range
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      filtered = filtered.filter((order) => {
+        const orderDate = dayjs(order.date);
+        return (
+          orderDate.isAfter(dateRange[0].subtract(1, "day")) &&
+          orderDate.isBefore(dateRange[1].add(1, "day"))
+        );
+      });
+    }
+
+    return filtered;
+  }, [displayOrders, dateRange]);
+
+  // Filter data by date range
+  const filterByDateRange = <
+    T extends { createdAt?: number; orderDate?: number; date?: number }
+  >(
+    data: T[]
+  ): T[] => {
+    if (!dateRange || !dateRange[0] || !dateRange[1]) return data;
+    return data.filter((item) => {
+      const itemDate = item.createdAt || item.orderDate || item.date;
+      if (!itemDate) return false;
+      const date = dayjs(itemDate);
+      return (
+        date.isAfter(dateRange[0].subtract(1, "day")) &&
+        date.isBefore(dateRange[1].add(1, "day"))
+      );
+    });
+  };
+
+  // Filter appointments, feedbacks, refunds, warranties by date range
+  const filteredAppointments = useMemo(
+    () => filterByDateRange(appointments),
+    [appointments, dateRange]
   );
-  const totalMembers = new Set(mockProcesses.map((p) => p.members)).size;
-  const avgProgress = Math.round(
-    mockProcesses.reduce((sum, p) => sum + p.progress, 0) / totalProcesses
+  const filteredFeedbacks = useMemo(
+    () => filterByDateRange(feedbacks),
+    [feedbacks, dateRange]
   );
+  const filteredRefunds = useMemo(
+    () => filterByDateRange(refunds),
+    [refunds, dateRange]
+  );
+  const filteredWarranties = useMemo(
+    () => filterByDateRange(warranties),
+    [warranties, dateRange]
+  );
+  const filteredWarrantyClaims = useMemo(
+    () => filterByDateRange(warrantyClaims),
+    [warrantyClaims, dateRange]
+  );
+
+  // Calculate filtered statistics
+  const filteredStats = useMemo(() => {
+    const totalRevenue = filteredOrders.reduce(
+      (sum, order) => sum + (order.totalAmount || 0),
+      0
+    );
+    const processingOrders = filteredOrders.filter(
+      (o) => o.status === "processing" || o.status === "in_progress"
+    ).length;
+    const completedOrders = filteredOrders.filter(
+      (o) => o.status === "completed" || o.status === "delivered"
+    ).length;
+    const newCustomers = new Set(filteredOrders.map((o) => o.customer)).size;
+    const pendingOrders = filteredOrders.filter(
+      (o) => o.status === "pending"
+    ).length;
+
+    // Warranty statistics
+    const totalWarranties = filteredWarranties.length;
+    const activeWarranties = filteredWarranties.filter((w) => {
+      if (!w.endDate) return false;
+      return dayjs(w.endDate).isAfter(dayjs());
+    }).length;
+    const warrantyClaimsCount = filteredWarrantyClaims.length;
+    const warrantyRate =
+      completedOrders > 0
+        ? ((totalWarranties / completedOrders) * 100).toFixed(1)
+        : "0";
+
+    // Feedback statistics
+    const totalFeedbacks = filteredFeedbacks.length;
+    const positiveFeedbacks = filteredFeedbacks.filter(
+      (f) => f.rating && f.rating >= 4
+    ).length;
+    const negativeFeedbacks = filteredFeedbacks.filter(
+      (f) => f.rating && f.rating <= 2
+    ).length;
+    const avgRating =
+      totalFeedbacks > 0
+        ? (
+            filteredFeedbacks.reduce((sum, f) => sum + (f.rating || 0), 0) /
+            totalFeedbacks
+          ).toFixed(1)
+        : "0";
+
+    // Refund statistics
+    const totalRefunds = filteredRefunds.length;
+    const pendingRefunds = filteredRefunds.filter(
+      (r) => r.status === "pending"
+    ).length;
+    const approvedRefunds = filteredRefunds.filter(
+      (r) => r.status === "approved"
+    ).length;
+    const totalRefundAmount = filteredRefunds
+      .filter((r) => r.status === "approved")
+      .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    // Appointment statistics
+    const totalAppointments = filteredAppointments.length;
+    const upcomingAppointments = filteredAppointments.filter((a) => {
+      if (!a.scheduledDate) return false;
+      return dayjs(a.scheduledDate).isAfter(dayjs());
+    }).length;
+    const completedAppointments = filteredAppointments.filter(
+      (a) => a.status === "completed"
+    ).length;
+
+    return {
+      totalRevenue,
+      processingOrders,
+      completedOrders,
+      newCustomers,
+      pendingOrders,
+      totalOrders: filteredOrders.length,
+      totalWarranties,
+      activeWarranties,
+      warrantyClaimsCount,
+      warrantyRate,
+      totalFeedbacks,
+      positiveFeedbacks,
+      negativeFeedbacks,
+      avgRating,
+      totalRefunds,
+      pendingRefunds,
+      approvedRefunds,
+      totalRefundAmount,
+      totalAppointments,
+      upcomingAppointments,
+      completedAppointments,
+    };
+  }, [
+    filteredOrders,
+    filteredWarranties,
+    filteredWarrantyClaims,
+    filteredFeedbacks,
+    filteredRefunds,
+    filteredAppointments,
+  ]);
+
+  // Generate chart data from real data
+  const chartData = useMemo(() => {
+    // Revenue by month from orders
+    const revenueByMonth: Record<string, number> = {};
+    filteredOrders.forEach((order) => {
+      const month = dayjs(order.date).format("YYYY-MM");
+      revenueByMonth[month] =
+        (revenueByMonth[month] || 0) + (order.totalAmount || 0);
+    });
+    const revenueMonthlyData = Object.entries(revenueByMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, revenue]) => ({
+        month: dayjs(month).format("MM/YYYY"),
+        revenue,
+      }));
+
+    // Order completion rate by month
+    const ordersByMonth: Record<string, { completed: number; total: number }> =
+      {};
+    filteredOrders.forEach((order) => {
+      const month = dayjs(order.date).format("YYYY-MM");
+      if (!ordersByMonth[month]) {
+        ordersByMonth[month] = { completed: 0, total: 0 };
+      }
+      ordersByMonth[month].total++;
+      if (order.status === "completed" || order.status === "delivered") {
+        ordersByMonth[month].completed++;
+      }
+    });
+    const orderRateData = Object.entries(ordersByMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({
+        month: dayjs(month).format("MM/YYYY"),
+        completed: data.completed,
+        total: data.total,
+      }));
+
+    // Customer source distribution
+    const sourceCount: Record<string, number> = {};
+    filteredOrders.forEach((order) => {
+      const source = order.customer || "Khác";
+      sourceCount[source] = (sourceCount[source] || 0) + 1;
+    });
+    const leadSourceData = Object.entries(sourceCount)
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"][
+          Object.keys(sourceCount).indexOf(name) % 5
+        ],
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    // Update category counts
+    const categories = [
+      {
+        name: "Đơn hàng",
+        count: filteredOrders.length,
+        color: "#1890ff",
+        icon: FileTextOutlined,
+      },
+      {
+        name: "Bảo hành",
+        count: filteredWarranties.length,
+        color: "#52c41a",
+        icon: SafetyCertificateOutlined,
+      },
+      {
+        name: "Feedback",
+        count: filteredFeedbacks.length,
+        color: "#faad14",
+        icon: CommentOutlined,
+      },
+      {
+        name: "Hoàn tiền",
+        count: filteredRefunds.length,
+        color: "#ff4d4f",
+        icon: DollarOutlined,
+      },
+    ];
+
+    return {
+      revenueMonthlyData,
+      orderRateData,
+      leadSourceData,
+      categories,
+    };
+  }, [filteredOrders, filteredWarranties, filteredFeedbacks, filteredRefunds]);
+  // Remove mock data calculations - using real data from Firebase
 
   const processColumns: TableColumnsType<WorkflowProcess> = [
     {
@@ -580,166 +744,353 @@ export default function DashboardPage() {
 
   return (
     <Space vertical size="large" className="w-full">
+      {/* Header with Filters */}
+      <Card className="shadow-sm">
+        <Form form={filterForm} layout="inline" className="w-full">
+          <Row gutter={[16, 16]} className="w-full">
+            <Col xs={24} sm={12} lg={12}>
+              <Form.Item
+                label={
+                  <Space>
+                    <ClockCircleOutlined />
+                    <span>Khoảng thời gian</span>
+                  </Space>
+                }
+                className="mb-0"
+              >
+                <RangePicker
+                  value={dateRange}
+                  onChange={(dates) => {
+                    if (dates) {
+                      setDateRange([dates[0]!, dates[1]!]);
+                    } else {
+                      setDateRange(null);
+                    }
+                  }}
+                  presets={rangePresets}
+                  format="DD/MM/YYYY"
+                  className="w-full"
+                  size="large"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Title level={3} className="mb-2">
-            Dashboard
-          </Title>
-          <Text className="text-gray-500">
-            Kiểm soát tiến độ và đo lường hiệu suất các quy trình
+      <Card
+        className="border-none"
+        style={{ background: "linear-gradient(to right, #eff6ff, #eef2ff)" }}
+      >
+        <Space direction="vertical" size="small" className="w-full">
+          <Space align="center">
+            <ProjectOutlined className="text-2xl text-blue-600" />
+            <Title level={3} className="mb-0">
+              Dashboard Thống Kê
+            </Title>
+          </Space>
+          <Text className="text-gray-600">
+            Tổng quan hiệu suất kinh doanh và quản lý đơn hàng
           </Text>
-        </div>
-      </div>
+        </Space>
+      </Card>
 
       {/* Business Statistics */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Doanh thu tháng này"
-              value={revenueStats.monthlyRevenue}
-              prefix="₫"
-              suffix="VNĐ"
-              formatter={(value) => `${(value as number).toLocaleString()}`}
-            />
-            <div className="mt-2">
-              <Text className="text-green-600 text-sm">
-                +{revenueStats.growth}% so với tháng trước
-              </Text>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Khách hàng mới"
-              value={customerStats.newCustomers}
-              prefix={<TeamOutlined />}
-              suffix="khách"
-            />
-            <div className="mt-2">
-              <Text className="text-green-600 text-sm">
-                +{customerStats.growth}% so với tháng trước
-              </Text>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Đơn đang xử lý"
-              value={orderStats.processingOrders}
-              prefix={<SyncOutlined spin />}
-              suffix="đơn"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Đơn đã hoàn thiện"
-              value={orderStats.completedOrders}
-              prefix={<CheckCircleOutlined />}
-              suffix="đơn"
-            />
-          </Card>
-        </Col>
-      </Row>
+      {ordersLoading || loading ? (
+        <Row gutter={[16, 16]}>
+          {[1, 2, 3, 4].map((i) => (
+            <Col xs={24} sm={12} lg={6} key={i}>
+              <Card>
+                <Skeleton active paragraph={{ rows: 2 }} />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      ) : (
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+              <Statistic
+                title={
+                  <Space>
+                    <TrophyOutlined className="text-green-600" />
+                    <span>Tổng doanh thu</span>
+                  </Space>
+                }
+                value={filteredStats.totalRevenue}
+                prefix="₫"
+                formatter={(value) =>
+                  `${((value as number) / 1000000).toFixed(1)}tr`
+                }
+                valueStyle={{ color: "#3f8600", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.totalOrders} đơn hàng
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+              <Statistic
+                title={
+                  <Space>
+                    <FileTextOutlined className="text-blue-600" />
+                    <span>Tổng đơn hàng</span>
+                  </Space>
+                }
+                value={filteredStats.totalOrders}
+                suffix="đơn"
+                valueStyle={{ color: "#1890ff", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.newCustomers} khách hàng
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+              <Statistic
+                title={
+                  <Space>
+                    <SyncOutlined spin className="text-orange-600" />
+                    <span>Đơn đang xử lý</span>
+                  </Space>
+                }
+                value={filteredStats.processingOrders}
+                suffix="đơn"
+                valueStyle={{ color: "#faad14", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.pendingOrders} đơn chờ xử lý
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+              <Statistic
+                title={
+                  <Space>
+                    <CheckCircleOutlined className="text-green-600" />
+                    <span>Đơn đã hoàn thiện</span>
+                  </Space>
+                }
+                value={filteredStats.completedOrders}
+                suffix="đơn"
+                valueStyle={{ color: "#52c41a", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.totalOrders > 0
+                    ? `${Math.round(
+                        (filteredStats.completedOrders /
+                          filteredStats.totalOrders) *
+                          100
+                      )}% hoàn thành`
+                    : "0% hoàn thành"}
+                </Text>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
-      {/* Statistics Overview */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Tổng quy trình"
-              value={totalProcesses}
-              prefix={<ProjectOutlined />}
-              suffix="quy trình"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Đang thực hiện"
-              value={activeProcesses}
-              prefix={<SyncOutlined spin />}
-              styles={{ content: { color: "#1890ff" } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Bị chặn"
-              value={blockedProcesses}
-              prefix={<ExclamationCircleOutlined />}
-              styles={{
-                content: {
-                  color: blockedProcesses > 0 ? "#ff4d4f" : undefined,
-                },
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Tiến độ trung bình"
-              value={avgProgress}
-              prefix={<TrophyOutlined />}
-              suffix="%"
-              styles={{ content: { color: "#52c41a" } }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* Additional Statistics */}
+      {ordersLoading || loading ? (
+        <Row gutter={[16, 16]}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Col xs={24} sm={12} lg={6} key={i}>
+              <Card>
+                <Skeleton active paragraph={{ rows: 2 }} />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      ) : (
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+              <Statistic
+                title={
+                  <Space>
+                    <SafetyCertificateOutlined className="text-blue-600" />
+                    <span>Bảo hành</span>
+                  </Space>
+                }
+                value={filteredStats.totalWarranties}
+                suffix="phiếu"
+                valueStyle={{ color: "#1890ff", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.activeWarranties} đang hoạt động •{" "}
+                  {filteredStats.warrantyRate}% tỷ lệ
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+              <Statistic
+                title={
+                  <Space>
+                    <CommentOutlined className="text-orange-600" />
+                    <span>Feedback</span>
+                  </Space>
+                }
+                value={filteredStats.totalFeedbacks}
+                suffix="phản hồi"
+                valueStyle={{ color: "#faad14", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  Đánh giá TB: {filteredStats.avgRating}/5 •{" "}
+                  {filteredStats.positiveFeedbacks} tích cực
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-red-500">
+              <Statistic
+                title={
+                  <Space>
+                    <DollarOutlined className="text-red-600" />
+                    <span>Hoàn tiền</span>
+                  </Space>
+                }
+                value={filteredStats.totalRefunds}
+                suffix="yêu cầu"
+                valueStyle={{ color: "#ff4d4f", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.pendingRefunds} chờ xử lý •{" "}
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(filteredStats.totalRefundAmount)}
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-purple-500">
+              <Statistic
+                title={
+                  <Space>
+                    <ClockCircleOutlined className="text-purple-600" />
+                    <span>Lịch hẹn</span>
+                  </Space>
+                }
+                value={filteredStats.totalAppointments}
+                suffix="cuộc hẹn"
+                valueStyle={{ color: "#722ed1", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  {filteredStats.upcomingAppointments} sắp tới •{" "}
+                  {filteredStats.completedAppointments} hoàn thành
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-cyan-500">
+              <Statistic
+                title={
+                  <Space>
+                    <ExclamationCircleOutlined className="text-cyan-600" />
+                    <span>Khiếu nại BH</span>
+                  </Space>
+                }
+                value={filteredStats.warrantyClaimsCount}
+                suffix="khiếu nại"
+                valueStyle={{ color: "#13c2c2", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  Từ {filteredStats.totalWarranties} phiếu bảo hành
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+              <Statistic
+                title={
+                  <Space>
+                    <TeamOutlined className="text-green-600" />
+                    <span>Khách hàng mới</span>
+                  </Space>
+                }
+                value={filteredStats.newCustomers}
+                suffix="khách"
+                valueStyle={{ color: "#52c41a", fontSize: "24px" }}
+              />
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Text className="text-gray-500 text-xs">
+                  Trong khoảng thời gian đã chọn
+                </Text>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       {/* Charts Section */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card
-            title="Giờ làm việc trong tuần"
+            title={
+              <Space>
+                <ClockCircleOutlined />
+                <span>Giờ làm việc trong tuần</span>
+              </Space>
+            }
             extra={
               <Text className="text-xs text-gray-500">
                 Tuần này • Avg. 7h/tháng
               </Text>
             }
+            className="shadow-sm"
           >
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={workingHoursData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="hours" fill="#FF8C42" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="avg" fill="#FFE68C" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <Empty description="Dữ liệu giờ làm việc sẽ được cập nhật" />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
           <Card
-            title="Doanh thu dự án"
+            title={
+              <Space>
+                <TrophyOutlined />
+                <span>Doanh thu theo tháng</span>
+              </Space>
+            }
             extra={
               <Text className="text-xs text-gray-500">
-                Năm • Avg. $3000/tháng
+                Theo khoảng thời gian đã chọn
               </Text>
             }
+            className="shadow-sm"
           >
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={revenueMonthlyData}>
+              <BarChart data={chartData.revenueMonthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip
                   formatter={(value: number) =>
-                    `${(value / 1000000).toFixed(0)}tr`
+                    `${(value / 1000000).toFixed(0)}tr VNĐ`
                   }
                 />
                 <Bar dataKey="revenue" radius={[8, 8, 0, 0]}>
-                  {revenueMonthlyData.map((entry, index) => (
+                  {chartData.revenueMonthlyData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={index % 2 === 0 ? "#B794F6" : "#90CDF4"}
@@ -756,60 +1107,97 @@ export default function DashboardPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card
-            title="Tiến độ dự án"
+            title={
+              <Space>
+                <ProjectOutlined />
+                <span>Tiến độ dự án</span>
+              </Space>
+            }
             extra={<Text className="text-xs text-gray-500">Xem thêm →</Text>}
+            className="shadow-sm"
           >
             <Space vertical size="middle" className="w-full">
-              {[
-                { month: "February", progress: 45, color: "#FFB088" },
-                { month: "March", progress: 65, color: "#90D5FF" },
-                { month: "April", progress: 85, color: "#95E1A4" },
-              ].map((item, index) => (
-                <div key={index}>
-                  <div className="flex justify-between mb-1">
-                    <Text className="text-sm">{item.month}</Text>
+              {chartData.orderRateData.slice(-3).map((item, index) => {
+                const progress =
+                  item.total > 0 ? (item.completed / item.total) * 100 : 0;
+                const colors = ["#FFB088", "#90D5FF", "#95E1A4"];
+                return (
+                  <div key={index}>
+                    <div className="flex justify-between mb-1">
+                      <Text className="text-sm">{item.month}</Text>
+                      <Text className="text-xs text-gray-500">
+                        {item.completed}/{item.total}
+                      </Text>
+                    </div>
+                    <Progress
+                      percent={Math.round(progress)}
+                      strokeColor={colors[index % colors.length]}
+                      showInfo={false}
+                      size="small"
+                    />
                   </div>
-                  <Progress
-                    percent={item.progress}
-                    strokeColor={item.color}
-                    showInfo={false}
-                    size="small"
-                  />
-                </div>
-              ))}
+                );
+              })}
+              {chartData.orderRateData.length === 0 && (
+                <Empty description="Chưa có dữ liệu" />
+              )}
             </Space>
           </Card>
         </Col>
         <Col xs={24} lg={12}>
           <Card
-            title="Danh mục dự án"
+            title={
+              <Space>
+                <AppstoreOutlined />
+                <span>Danh mục dự án</span>
+              </Space>
+            }
             extra={<Text className="text-xs text-gray-500">Xem thêm →</Text>}
+            className="shadow-sm"
           >
             <Row gutter={[12, 12]}>
-              {projectCategories.map((category, index) => (
-                <Col span={12} key={index}>
-                  <Card
-                    size="small"
-                    style={{ backgroundColor: category.color, border: "none" }}
-                    styles={{ body: { padding: "16px" } }}
-                  >
-                    <div className="text-center">
-                      <div className="text-3xl mb-2">
-                        {index === 0
-                          ? "📊"
-                          : index === 1
-                          ? "📢"
-                          : index === 2
-                          ? "⚙️"
-                          : "😊"}
-                      </div>
-                      <Text strong className="text-base">
-                        {category.name}
-                      </Text>
-                    </div>
-                  </Card>
-                </Col>
-              ))}
+              {chartData.categories.map((category, index) => {
+                const IconComponent = category.icon;
+                return (
+                  <Col span={12} key={index}>
+                    <Card
+                      size="small"
+                      className="hover:shadow-md transition-shadow"
+                      styles={{
+                        body: { padding: "20px", textAlign: "center" },
+                      }}
+                    >
+                      <Space
+                        direction="vertical"
+                        size="middle"
+                        className="w-full"
+                        align="center"
+                      >
+                        <div
+                          className="rounded-full p-4 flex items-center justify-center"
+                          style={{ backgroundColor: `${category.color}20` }}
+                        >
+                          <IconComponent
+                            className="text-2xl"
+                            style={{ color: category.color }}
+                          />
+                        </div>
+                        <div>
+                          <Text strong className="text-base block mb-1">
+                            {category.name}
+                          </Text>
+                          <Text
+                            className="text-lg font-semibold"
+                            style={{ color: category.color }}
+                          >
+                            {category.count}
+                          </Text>
+                        </div>
+                      </Space>
+                    </Card>
+                  </Col>
+                );
+              })}
             </Row>
           </Card>
         </Col>
@@ -829,12 +1217,7 @@ export default function DashboardPage() {
                 </span>
               ),
               children: (
-                <Table<WorkflowProcess>
-                  columns={processColumns}
-                  dataSource={mockProcesses}
-                  rowKey="id"
-                  pagination={false}
-                />
+                <Empty description="Dữ liệu quy trình sẽ được cập nhật" />
               ),
             },
             {
@@ -851,28 +1234,7 @@ export default function DashboardPage() {
                       Theo dõi trực quan tiến độ thực thi từng quy trình
                     </Text>
                   </div>
-                  <Row gutter={[16, 16]}>
-                    {renderKanbanColumn(
-                      "Chưa bắt đầu",
-                      mockKanbanTasks.pending,
-                      "#d9d9d9"
-                    )}
-                    {renderKanbanColumn(
-                      "Đang thực hiện",
-                      mockKanbanTasks.inProgress,
-                      "#1890ff"
-                    )}
-                    {renderKanbanColumn(
-                      "Đang kiểm tra",
-                      mockKanbanTasks.review,
-                      "#faad14"
-                    )}
-                    {renderKanbanColumn(
-                      "Hoàn thành",
-                      mockKanbanTasks.completed,
-                      "#52c41a"
-                    )}
-                  </Row>
+                  <Empty description="Dữ liệu Kanban sẽ được cập nhật" />
                 </div>
               ),
             },
@@ -888,153 +1250,117 @@ export default function DashboardPage() {
                   <Col xs={24} lg={16}>
                     <Timeline
                       items={[
-                        {
-                          color: "green",
-                          children: (
-                            <Space vertical size={0}>
-                              <Text strong>Hoàn thành kiểm tra chất lượng</Text>
-                              <Text className="text-xs text-gray-500">
-                                Quy trình: Kiểm tra chất lượng tháng 12
-                              </Text>
-                              <Text className="text-xs text-gray-500">
-                                5 giờ trước
-                              </Text>
-                            </Space>
-                          ),
-                        },
-                        {
-                          color: "blue",
-                          children: (
-                            <Space vertical size={0}>
-                              <Text strong>Chuyển sang giai đoạn cắt vải</Text>
-                              <Text className="text-xs text-gray-500">
-                                Quy trình: Đơn hàng #2024-001
-                              </Text>
-                              <Text className="text-xs text-gray-500">
-                                2 giờ trước
-                              </Text>
-                            </Space>
-                          ),
-                        },
-                        {
-                          color: "red",
-                          children: (
-                            <Space vertical size={0}>
-                              <Text strong>
-                                <WarningOutlined className="mr-2" />
-                                Phát hiện vấn đề tại kiểm tra kho
-                              </Text>
-                              <Text className="text-xs text-gray-500">
-                                Quy trình: Nhập nguyên vật liệu
-                              </Text>
-                              <Text className="text-xs text-gray-500">
-                                1 ngày trước
-                              </Text>
-                            </Space>
-                          ),
-                        },
-                        {
-                          color: "blue",
-                          children: (
-                            <Space vertical size={0}>
-                              <Text strong>Bắt đầu đào tạo thực hành</Text>
-                              <Text className="text-xs text-gray-500">
-                                Quy trình: Đào tạo nhân viên mới
-                              </Text>
-                              <Text className="text-xs text-gray-500">
-                                3 giờ trước
-                              </Text>
-                            </Space>
-                          ),
-                        },
-                        {
-                          color: "gray",
-                          children: (
-                            <Space vertical size={0}>
-                              <Text strong>Tạo quy trình bảo trì định kỳ</Text>
-                              <Text className="text-xs text-gray-500">
-                                Quy trình: Bảo trì máy móc định kỳ
-                              </Text>
-                              <Text className="text-xs text-gray-500">
-                                2 ngày trước
-                              </Text>
-                            </Space>
-                          ),
-                        },
+                        ...filteredOrders
+                          .slice(0, 5)
+                          .sort((a, b) => b.createdAt - a.createdAt)
+                          .map((order) => ({
+                            color:
+                              order.status === "completed" ||
+                              order.status === "delivered"
+                                ? "green"
+                                : order.status === "processing" ||
+                                  order.status === "in_progress"
+                                ? "blue"
+                                : "gray",
+                            children: (
+                              <Space vertical size={0}>
+                                <Space>
+                                  {order.status === "completed" ||
+                                  order.status === "delivered" ? (
+                                    <CheckCircleOutlined className="text-green-600" />
+                                  ) : order.status === "processing" ||
+                                    order.status === "in_progress" ? (
+                                    <SyncOutlined
+                                      spin
+                                      className="text-blue-600"
+                                    />
+                                  ) : (
+                                    <ClockCircleOutlined className="text-gray-500" />
+                                  )}
+                                  <Text strong>Đơn hàng {order.code}</Text>
+                                </Space>
+                                <Text className="text-xs text-gray-500">
+                                  Khách hàng: {order.customer}
+                                </Text>
+                                <Text className="text-xs text-gray-500">
+                                  {dayjs(order.createdAt).format(
+                                    "DD/MM/YYYY HH:mm"
+                                  )}
+                                </Text>
+                              </Space>
+                            ),
+                          })),
+                        ...(filteredOrders.length === 0
+                          ? [
+                              {
+                                color: "gray",
+                                children: (
+                                  <Empty description="Chưa có dữ liệu đơn hàng" />
+                                ),
+                              },
+                            ]
+                          : []),
                       ]}
                     />
                   </Col>
                   <Col xs={24} lg={8}>
-                    <Card title="Quy trình bị chặn" className="mb-4">
+                    <Card title="Khiếu nại bảo hành" className="mb-4">
                       <Space vertical size="middle" className="w-full">
-                        {mockProcesses
-                          .filter((p) => p.status === "blocked")
-                          .map((process) => (
-                            <div key={process.id}>
-                              <Text strong className="text-sm">
-                                {process.name}
-                              </Text>
-                              <div className="mt-2">
-                                <Tag color="red" icon={<WarningOutlined />}>
-                                  Bị chặn tại: {process.currentWorkflow}
-                                </Tag>
-                              </div>
-                              <Paragraph className="text-xs text-gray-500 mt-2 mb-0">
-                                Cần xử lý ngay để tránh ảnh hưởng đến tiến độ
-                              </Paragraph>
+                        {filteredWarrantyClaims.slice(0, 5).map((claim) => (
+                          <div key={claim.id}>
+                            <Text strong className="text-sm">
+                              {claim.code || claim.id}
+                            </Text>
+                            <div className="mt-2">
+                              <Tag color="orange" icon={<WarningOutlined />}>
+                                {claim.status || "Chờ xử lý"}
+                              </Tag>
                             </div>
-                          ))}
+                            <Paragraph className="text-xs text-gray-500 mt-2 mb-0">
+                              {claim.notes ||
+                                (claim.issues && claim.issues.length > 0
+                                  ? claim.issues.join(", ")
+                                  : "Không có mô tả")}
+                            </Paragraph>
+                          </div>
+                        ))}
+                        {filteredWarrantyClaims.length === 0 && (
+                          <Empty description="Không có khiếu nại" />
+                        )}
                       </Space>
                     </Card>
-                    <Card title="Cảnh báo ưu tiên cao">
+                    <Card title="Feedback tiêu cực">
                       <Space vertical size="small" className="w-full">
-                        {mockProcesses
-                          .filter((p) => p.priority === "high")
-                          .map((process) => (
+                        {filteredFeedbacks
+                          .filter((f) => f.rating && f.rating <= 2)
+                          .slice(0, 5)
+                          .map((feedback) => (
                             <div
-                              key={process.id}
+                              key={feedback.id}
                               className="p-2 bg-red-50 rounded"
                             >
                               <Text strong className="text-xs">
-                                {process.name}
+                                {feedback.customerName || "Khách hàng"}
                               </Text>
                               <div className="mt-1">
-                                <Progress
-                                  percent={process.progress}
-                                  size="small"
-                                  strokeColor="#ff4d4f"
-                                />
+                                <Text className="text-xs">
+                                  Đánh giá: {feedback.rating}/5
+                                </Text>
                               </div>
                             </div>
                           ))}
+                        {filteredFeedbacks.filter(
+                          (f) => f.rating && f.rating <= 2
+                        ).length === 0 && (
+                          <Empty description="Không có feedback tiêu cực" />
+                        )}
                       </Space>
                     </Card>
                   </Col>
                 </Row>
               ),
             },
-            {
-              key: "followup",
-              label: (
-                <span>
-                  <ClockCircleOutlined /> Follow-up
-                </span>
-              ),
-              children: (
-                <Row gutter={[16, 16]}>
-                  <Col xs={24} lg={12}>
-                    <Card title="Follow-up cần thực hiện" className="mb-4">
-                      <FollowUpReminder limit={20} showCompleted={false} />
-                    </Card>
-                  </Col>
-                  <Col xs={24} lg={12}>
-                    <Card title="Follow-up đã hoàn thành">
-                      <FollowUpReminder limit={10} showCompleted={true} />
-                    </Card>
-                  </Col>
-                </Row>
-              ),
-            },
+
             {
               key: "statistics",
               label: (
@@ -1045,11 +1371,19 @@ export default function DashboardPage() {
               children: (
                 <Row gutter={[16, 16]}>
                   <Col xs={24} lg={12}>
-                    <Card title="Nguồn Lead Tới">
+                    <Card
+                      title={
+                        <Space>
+                          <TeamOutlined />
+                          <span>Nguồn Lead Tới</span>
+                        </Space>
+                      }
+                      className="shadow-sm"
+                    >
                       <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                           <Pie
-                            data={leadSourceData}
+                            data={chartData.leadSourceData}
                             cx="50%"
                             cy="50%"
                             labelLine={false}
@@ -1060,7 +1394,7 @@ export default function DashboardPage() {
                             fill="#8884d8"
                             dataKey="value"
                           >
-                            {leadSourceData.map((entry, index) => (
+                            {chartData.leadSourceData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
@@ -1070,9 +1404,17 @@ export default function DashboardPage() {
                     </Card>
                   </Col>
                   <Col xs={24} lg={12}>
-                    <Card title="Tỷ Lệ Đơn Hàng Hoàn Thành">
+                    <Card
+                      title={
+                        <Space>
+                          <CheckCircleOutlined />
+                          <span>Tỷ Lệ Đơn Hàng Hoàn Thành</span>
+                        </Space>
+                      }
+                      className="shadow-sm"
+                    >
                       <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={orderRateData}>
+                        <LineChart data={chartData.orderRateData}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="month" />
                           <YAxis />
@@ -1094,6 +1436,71 @@ export default function DashboardPage() {
                       </ResponsiveContainer>
                     </Card>
                   </Col>
+                  <Col xs={24} lg={12}>
+                    <Card
+                      title={
+                        <Space>
+                          <TrophyOutlined />
+                          <span>Doanh thu theo thời gian</span>
+                        </Space>
+                      }
+                      className="shadow-sm"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={chartData.revenueMonthlyData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <Tooltip
+                            formatter={(value: number) =>
+                              `${(value / 1000000).toFixed(1)}tr VNĐ`
+                            }
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke="#8884d8"
+                            fill="#8884d8"
+                            fillOpacity={0.6}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  </Col>
+                  <Col xs={24} lg={12}>
+                    <Card
+                      title={
+                        <Space>
+                          <FileTextOutlined />
+                          <span>So sánh doanh thu và đơn hàng</span>
+                        </Space>
+                      }
+                      className="shadow-sm"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={chartData.orderRateData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis yAxisId="left" />
+                          <YAxis yAxisId="right" orientation="right" />
+                          <Tooltip />
+                          <Legend />
+                          <Bar
+                            yAxisId="left"
+                            dataKey="completed"
+                            fill="#8884d8"
+                            name="Đơn hoàn thành"
+                          />
+                          <Bar
+                            yAxisId="right"
+                            dataKey="total"
+                            fill="#82ca9d"
+                            name="Tổng đơn"
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  </Col>
                 </Row>
               ),
             },
@@ -1101,56 +1508,119 @@ export default function DashboardPage() {
         />
       </Card>
 
-      {/* Recent Orders */}
-      <Card title="Đơn Hàng Gần Đây" className="mt-6">
-        <Table<RecentOrder>
-          columns={[
-            {
-              title: "Mã đơn",
-              dataIndex: "orderNumber",
-              key: "orderNumber",
-              render: (text: string) => <Text strong>{text}</Text>,
-            },
-            {
-              title: "Khách hàng",
-              dataIndex: "customer",
-              key: "customer",
-            },
-            {
-              title: "Trạng thái",
-              dataIndex: "status",
-              key: "status",
-              render: (status: string) => {
-                const statusMap = {
-                  processing: { color: "processing", text: "Đang xử lý" },
-                  completed: { color: "success", text: "Hoàn thành" },
-                  pending: { color: "default", text: "Chờ xử lý" },
-                };
-                const { color, text } =
-                  statusMap[status as keyof typeof statusMap];
-                return <Tag color={color}>{text}</Tag>;
+      {/* Recent Orders - Only show 5 records */}
+      <Card
+        title={
+          <Space>
+            <FileTextOutlined className="text-blue-600" />
+            <span>Đơn Hàng Gần Đây</span>
+          </Space>
+        }
+        className="mt-6 shadow-sm"
+        extra={
+          <Space>
+            <Badge
+              count={filteredOrders.length}
+              showZero
+              style={{ backgroundColor: "#1890ff" }}
+            />
+            <Text className="text-xs text-gray-500">
+              Hiển thị 5 đơn hàng mới nhất
+            </Text>
+          </Space>
+        }
+      >
+        {ordersLoading ? (
+          <Skeleton active paragraph={{ rows: 5 }} />
+        ) : filteredOrders.length === 0 ? (
+          <Empty description="Không có dữ liệu đơn hàng" />
+        ) : (
+          <Table<DisplayOrder>
+            columns={[
+              {
+                title: "Mã đơn",
+                dataIndex: "code",
+                key: "code",
+                width: 150,
+                fixed: "left",
+                render: (text: string) => (
+                  <Text strong className="font-mono">
+                    {text}
+                  </Text>
+                ),
               },
-            },
-            {
-              title: "Tổng tiền",
-              dataIndex: "totalAmount",
-              key: "totalAmount",
-              render: (amount: number) => (
-                <Text>{amount.toLocaleString()} VNĐ</Text>
-              ),
-            },
-            {
-              title: "Thời gian",
-              dataIndex: "createdAt",
-              key: "createdAt",
-              render: (text: string) => <Text className="text-xs">{text}</Text>,
-            },
-          ]}
-          dataSource={mockRecentOrders}
-          rowKey="id"
-          pagination={false}
-          size="small"
-        />
+              {
+                title: "Khách hàng",
+                dataIndex: "customer",
+                key: "customer",
+                width: 200,
+                render: (text: string) => <Text>{text || "N/A"}</Text>,
+              },
+              {
+                title: "Số điện thoại",
+                dataIndex: "phone",
+                key: "phone",
+                width: 130,
+                render: (text: string) => <Text>{text || "-"}</Text>,
+              },
+              {
+                title: "Ngày đặt",
+                dataIndex: "date",
+                key: "date",
+                width: 120,
+                render: (date: string) => (
+                  <Text>{dayjs(date).format("DD/MM/YYYY")}</Text>
+                ),
+                sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),
+              },
+              {
+                title: "Trạng thái",
+                dataIndex: "status",
+                key: "status",
+                width: 140,
+                render: (status: string) => {
+                  const statusMap: Record<
+                    string,
+                    { color: string; text: string }
+                  > = {
+                    pending: { color: "default", text: "Chờ xử lý" },
+                    processing: { color: "processing", text: "Đang xử lý" },
+                    in_progress: { color: "processing", text: "Đang xử lý" },
+                    completed: { color: "success", text: "Hoàn thành" },
+                    delivered: { color: "success", text: "Đã giao" },
+                    cancelled: { color: "error", text: "Đã hủy" },
+                  };
+                  const statusInfo = statusMap[status] || {
+                    color: "default",
+                    text: status,
+                  };
+                  return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
+                },
+              },
+              {
+                title: "Tổng tiền",
+                dataIndex: "totalAmount",
+                key: "totalAmount",
+                width: 150,
+                align: "right",
+                render: (amount: number) => (
+                  <Text strong className="text-green-600">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(amount || 0)}
+                  </Text>
+                ),
+                sorter: (a, b) => (a.totalAmount || 0) - (b.totalAmount || 0),
+              },
+            ]}
+            dataSource={filteredOrders.slice(0, 5)}
+            rowKey="id"
+            pagination={false}
+            size="small"
+            scroll={{ x: 800 }}
+          />
+        )}
       </Card>
     </Space>
   );

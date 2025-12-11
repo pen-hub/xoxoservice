@@ -17,28 +17,21 @@ const UpdateOrderPage: React.FC<UpdateOrderPageProps> = ({ params }) => {
   const orderCode = resolvedParams.code;
 
   const handleSuccess = (updatedorderCode: string) => {
-    router.push("/sale/orders");
+    router.push(`/sale/orders/${updatedorderCode}`);
   };
 
   const handleCancel = () => {
     router.push("/sale/orders");
   };
 
-  if (!orderCode) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-red-500">ID đơn hàng không hợp lệ! {orderCode}</p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <WrapperContent
+    isEmpty={!orderCode}
       title="Cập nhật đơn hàng"
       header={{
-        buttonBackTo: "/sale/orders",
+        buttonBackTo: `/sale/orders/${orderCode}`,
       }}
     >
       <OrderForm

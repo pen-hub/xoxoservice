@@ -52,7 +52,6 @@ export interface ProductData {
   name: string;
   quantity: number;
   price: number;
-  commissionPercentage?: number; // Optional commission percentage for staff
   images: (UploadFile & { firebaseUrl?: string })[];
   imagesDone?: (UploadFile & { firebaseUrl?: string })[];
   workflows: WorkflowData[];
@@ -77,7 +76,6 @@ export interface FirebaseProductData {
   name: string;
   quantity: number;
   price: number;
-  commissionPercentage?: number; // Optional commission percentage for staff
   images: Array<{
     uid: string;
     name: string;
@@ -137,6 +135,7 @@ export interface FirebaseOrderData {
   createdByName: string;
   consultantId?: string;
   consultantName?: string;
+  commissionPercentage?: number; // Commission percentage for consultant (at order level)
   createdAt?: number;
   updatedAt?: number;
   notes?: string;
@@ -161,6 +160,7 @@ export interface FirebaseOrderData {
   caredBy?: string; // User ID who marked as cared
   caredByName?: string; // User name who marked as cared
   caredAt?: number; // Timestamp when marked as cared
+  careCount?: number; // Number of times this order has been cared for
 }
 
 // Form related interfaces
@@ -176,6 +176,7 @@ export interface FormValues {
   createdBy: string;
   createdByName: string;
   consultantId?: string;
+  commissionPercentage?: number; // Commission percentage for consultant (at order level)
   notes?: string;
   discount?: number;
   discountType?: DiscountType;

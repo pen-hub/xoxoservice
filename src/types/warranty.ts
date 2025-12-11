@@ -21,3 +21,5 @@ export interface WarrantyRecord {
 export interface FirebaseWarrantyRecords {
   [warrantyId: string]: WarrantyRecord;
 }
+
+

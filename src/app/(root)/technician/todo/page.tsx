@@ -261,7 +261,6 @@ export default function TechnicianTodoPage() {
       name: "orderCode",
       label: "Mã đơn",
       type: "input",
-
     },
     {
       name: "status",
@@ -290,7 +289,7 @@ export default function TechnicianTodoPage() {
       }
       isLoading={ordersLoading || warrantyClaimsLoading}
       header={{
-        buttonBackTo: "/dashboard",
+        buttonBackTo: "/technician",
         searchInput: {
           placeholder: "Tìm kiếm theo mã đơn, khách hàng, sản phẩm...",
           filterKeys: [

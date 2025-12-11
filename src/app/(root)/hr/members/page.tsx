@@ -8,8 +8,8 @@ import { MemberService } from "@/services/memberService";
 import { SalaryService } from "@/services/salaryService";
 import { RoleLabels, ROLES, RolesOptions } from "@/types/enum";
 import { IMembers } from "@/types/members";
-import { SalaryConfig, SalaryTemplate, SalaryType } from "@/types/salary";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { SalaryTemplate, SalaryType } from "@/types/salary";
+import { genCode } from "@/utils/genCode";
 import {
   DeleteOutlined,
   EditOutlined,
@@ -19,8 +19,10 @@ import {
 } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
 import {
+  Alert,
   App,
   Button,
+  Card,
   DatePicker,
   Form,
   Input,
@@ -31,6 +33,7 @@ import {
   Space,
   Switch,
   Tabs,
+  Tooltip,
   Typography,
 } from "antd";
 import dayjs from "dayjs";
@@ -133,17 +136,24 @@ interface MemberFormProps {
 const SalarySetupTab: React.FC<{
   memberId?: string;
   form: any;
-}> = ({ memberId, form }) => {
-  const [salaryForm] = Form.useForm();
+}> = ({ memberId, form: salaryForm }) => {
   const [templates, setTemplates] = useState<SalaryTemplate[]>([]);
   const [loadingSalary, setLoadingSalary] = useState(false);
-  const [enableRevenueBonus, setEnableRevenueBonus] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null
+  );
   const { message } = App.useApp();
 
-  // Load salary templates
+  // Load salary templates - sort by createdAt desc (newest first)
   useEffect(() => {
     const unsubscribe = SalaryService.onTemplatesSnapshot((data) => {
-      setTemplates(data);
+      // Sort templates: newest first (highest createdAt)
+      const sorted = [...data].sort((a, b) => {
+        const aTime = a.createdAt || 0;
+        const bTime = b.createdAt || 0;
+        return bTime - aTime; // Descending order
+      });
+      setTemplates(sorted);
     });
     return () => unsubscribe();
   }, []);
@@ -155,15 +165,20 @@ const SalarySetupTab: React.FC<{
       SalaryService.getSalaryByMemberId(memberId)
         .then((salary) => {
           if (salary) {
-            salaryForm.setFieldsValue(salary);
-            setEnableRevenueBonus(salary.enableRevenueBonus || false);
+            salaryForm.setFieldsValue({
+              salaryType: salary.salaryType,
+              salaryAmount: salary.salaryAmount,
+              bonusPercentage: salary.bonusPercentage ?? 0,
+              salaryTemplateId: salary.salaryTemplateId,
+            });
+            setSelectedTemplateId(salary.salaryTemplateId || null);
           } else {
             salaryForm.resetFields();
             salaryForm.setFieldsValue({
               salaryType: SalaryType.FIXED,
-              enableRevenueBonus: false,
+              bonusPercentage: 0,
             });
-            setEnableRevenueBonus(false);
+            setSelectedTemplateId(null);
           }
         })
         .catch((error) => {
@@ -176,23 +191,27 @@ const SalarySetupTab: React.FC<{
       salaryForm.resetFields();
       salaryForm.setFieldsValue({
         salaryType: SalaryType.FIXED,
-        enableRevenueBonus: false,
+        bonusPercentage: 0,
       });
-      setEnableRevenueBonus(false);
+      setSelectedTemplateId(null);
     }
   }, [memberId, salaryForm]);
 
-  const handleTemplateChange = (templateId: string) => {
+  const handleTemplateChange = (templateId: string | null) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) {
+      // Clear template selection - enable fields
+      return;
+    }
     const template = templates.find((t) => t.id === templateId);
     if (template) {
+      // Fill all fields from template
       salaryForm.setFieldsValue({
         salaryType: template.salaryType,
         salaryAmount: template.salaryAmount,
-        enableRevenueBonus: template.enableRevenueBonus,
-        bonusPercentage: template.bonusPercentage,
+        bonusPercentage: template.bonusPercentage ?? 0,
         salaryTemplateId: templateId,
       });
-      setEnableRevenueBonus(template.enableRevenueBonus || false);
     }
   };
 
@@ -218,125 +237,221 @@ const SalarySetupTab: React.FC<{
     }
   };
 
+  const getSalaryTypeDescription = (type: SalaryType) => {
+    switch (type) {
+      case SalaryType.FIXED:
+        return "Lương cố định hàng tháng, không phụ thuộc số ca/giờ làm việc";
+      case SalaryType.BY_SHIFT:
+        return "Lương = số ca làm × mức lương/ca (cần nhập số ca để tính lương thực tế)";
+      case SalaryType.BY_HOUR:
+        return "Lương = số giờ làm × mức lương/giờ (cần nhập số giờ để tính lương thực tế)";
+      case SalaryType.BY_DAY:
+        return "Lương = số ngày làm × mức lương/ngày (cần nhập số ngày để tính lương thực tế)";
+      default:
+        return "";
+    }
+  };
+
+  const getSalaryPreview = (type: SalaryType, amount: number) => {
+    if (!amount || amount <= 0) return null;
+    switch (type) {
+      case SalaryType.BY_SHIFT:
+        return `Ví dụ: Nếu nhân viên làm 20 ca/tháng × ${amount.toLocaleString(
+          "vi-VN"
+        )} VNĐ/ca = ${(20 * amount).toLocaleString("vi-VN")} VNĐ`;
+      case SalaryType.BY_HOUR:
+        return `Ví dụ: Nếu nhân viên làm 160 giờ/tháng × ${amount.toLocaleString(
+          "vi-VN"
+        )} VNĐ/giờ = ${(160 * amount).toLocaleString("vi-VN")} VNĐ`;
+      case SalaryType.BY_DAY:
+        return `Ví dụ: Nếu nhân viên làm 22 ngày/tháng × ${amount.toLocaleString(
+          "vi-VN"
+        )} VNĐ/ngày = ${(22 * amount).toLocaleString("vi-VN")} VNĐ`;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <Form form={salaryForm} layout="vertical" className="mt-4">
-      <Form.Item
-        label={
-          <Space>
-            <Typography.Text>Loại lương</Typography.Text>
-            <InfoCircleOutlined className="text-gray-400" />
-          </Space>
-        }
-        name="salaryType"
-        rules={[{ required: true, message: "Vui lòng chọn loại lương!" }]}
-        initialValue={SalaryType.FIXED}
+    <Form form={salaryForm} layout="vertical" className="mt-4 space-y-6">
+      {/* Section 1: Lương cơ bản */}
+      <Card
+        title={<Typography.Text strong>Lương cơ bản</Typography.Text>}
+        className="border border-gray-200"
       >
-        <Select placeholder="Chọn loại lương" options={salaryTypeOptions} />
-      </Form.Item>
-
-      <Form.Item
-        noStyle
-        shouldUpdate={(prevValues, currentValues) =>
-          prevValues.salaryType !== currentValues.salaryType
-        }
-      >
-        {({ getFieldValue }) => {
-          const salaryType = getFieldValue("salaryType");
-          return (
-            <Form.Item
-              label="Mức lương"
-              name="salaryAmount"
-              rules={[
-                { required: true, message: "Vui lòng nhập mức lương!" },
-                {
-                  type: "number",
-                  min: 0,
-                  message: "Mức lương phải lớn hơn 0!",
-                },
-              ]}
-            >
-              <InputNumber
-                placeholder="Nhập mức lương"
-                className="w-full"
-                formatter={(value) =>
-                  `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                }
-                parser={(value) => Number(value?.replace(/,/g, "") || 0) as any}
-                addonAfter="VNĐ"
-              />
-            </Form.Item>
-          );
-        }}
-      </Form.Item>
-
-      <Form.Item
-        label={
-          <Space>
-            <Typography.Text>Mẫu lương</Typography.Text>
-            <InfoCircleOutlined className="text-gray-400" />
-          </Space>
-        }
-        name="salaryTemplateId"
-      >
-        <Select
-          placeholder="Chọn mẫu lương (tùy chọn)"
-          allowClear
-          showSearch
-          optionFilterProp="label"
-          onChange={handleTemplateChange}
-          options={templates.map((t) => ({
-            label: t.name,
-            value: t.id,
-          }))}
-        />
-      </Form.Item>
-
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
         <Form.Item
-          name="enableRevenueBonus"
-          valuePropName="checked"
-          className="mb-4"
+          label={
+            <Space>
+              <Typography.Text>Loại lương</Typography.Text>
+              <Tooltip title="Chọn loại lương phù hợp với cách tính lương của nhân viên">
+                <InfoCircleOutlined className="text-gray-400" />
+              </Tooltip>
+            </Space>
+          }
+          name="salaryType"
+          rules={[{ required: true, message: "Vui lòng chọn loại lương!" }]}
+          initialValue={SalaryType.FIXED}
         >
-          <Switch
-            checkedChildren="Bật"
-            unCheckedChildren="Tắt"
-            onChange={(checked) => setEnableRevenueBonus(checked)}
+          <Select
+            placeholder="Chọn loại lương"
+            options={salaryTypeOptions}
+            disabled={!!selectedTemplateId}
           />
         </Form.Item>
-        <span className="text-sm text-gray-600 block mb-4">
-          Thiết lập thưởng theo doanh thu cho nhân viên
-        </span>
 
-        {enableRevenueBonus && (
-          <Form.Item
-            label="% Thưởng theo doanh thu"
-            name="bonusPercentage"
-            rules={[
-              {
-                required: true,
-                message: "Vui lòng nhập % thưởng!",
-              },
-              {
-                type: "number",
-                min: 0,
-                max: 100,
-                message: "% thưởng phải từ 0 đến 100!",
-              },
-            ]}
-          >
-            <InputNumber
-              placeholder="Nhập % thưởng"
-              className="w-full"
-              min={0}
-              max={100}
-              formatter={(value) => `${value}%`}
-              parser={(value) => Number(value?.replace("%", "") || 0) as any}
-              step={0.1}
-              precision={1}
-            />
-          </Form.Item>
-        )}
-      </div>
+        <Form.Item
+          noStyle
+          shouldUpdate={(prevValues, currentValues) =>
+            prevValues.salaryType !== currentValues.salaryType ||
+            prevValues.salaryAmount !== currentValues.salaryAmount
+          }
+        >
+          {({ getFieldValue }) => {
+            const salaryType = getFieldValue("salaryType");
+            const salaryAmount = getFieldValue("salaryAmount");
+            const preview = getSalaryPreview(salaryType, salaryAmount);
+            return (
+              <>
+                <Form.Item
+                  label={
+                    <Space>
+                      <Typography.Text>
+                        {getSalaryAmountLabel(salaryType)}
+                      </Typography.Text>
+                      <Tooltip title={getSalaryTypeDescription(salaryType)}>
+                        <InfoCircleOutlined className="text-gray-400" />
+                      </Tooltip>
+                    </Space>
+                  }
+                  name="salaryAmount"
+                  rules={[
+                    { required: true, message: "Vui lòng nhập mức lương!" },
+                    {
+                      type: "number",
+                      min: 0,
+                      message: "Mức lương phải lớn hơn 0!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    placeholder="Nhập mức lương"
+                    style={{ width: "100%" }}
+                    formatter={(value) =>
+                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    }
+                    parser={(value) =>
+                      Number(value?.replace(/,/g, "") || 0) as any
+                    }
+                    addonAfter="VNĐ"
+                    disabled={!!selectedTemplateId}
+                  />
+                </Form.Item>
+                {preview && (
+                  <Alert
+                    message={preview}
+                    type="info"
+                    showIcon
+                    className="mb-4"
+                  />
+                )}
+              </>
+            );
+          }}
+        </Form.Item>
+
+        <Form.Item
+          label={
+            <Space>
+              <Typography.Text>Mẫu lương</Typography.Text>
+              <Tooltip title="Chọn mẫu lương có sẵn để áp dụng nhanh (tùy chọn)">
+                <InfoCircleOutlined className="text-gray-400" />
+              </Tooltip>
+            </Space>
+          }
+          name="salaryTemplateId"
+        >
+          <Select
+            placeholder="Chọn mẫu lương (tùy chọn)"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            onChange={handleTemplateChange}
+            options={templates.map((t) => ({
+              label: t.name,
+              value: t.id,
+            }))}
+            value={selectedTemplateId}
+          />
+        </Form.Item>
+      </Card>
+
+      {/* Section 2: Phần trăm triết khấu */}
+      <Card
+        title={<Typography.Text strong>Phần trăm triết khấu</Typography.Text>}
+        className="border border-blue-200 bg-blue-50"
+      >
+        <Form.Item
+          label="Phần trăm triết khấu (%)"
+          name="bonusPercentage"
+          rules={[
+            {
+              required: true,
+              message: "Vui lòng nhập phần trăm triết khấu!",
+            },
+            {
+              type: "number",
+              min: 0,
+              max: 100,
+              message: "Phần trăm triết khấu phải từ 0 đến 100!",
+            },
+          ]}
+          initialValue={0}
+        >
+          <InputNumber
+            placeholder="Nhập phần trăm triết khấu"
+            style={{ width: "100%" }}
+            min={0}
+            max={100}
+            formatter={(value) => `${value}%`}
+            parser={(value) => Number(value?.replace("%", "") || 0) as any}
+            step={0.1}
+            precision={1}
+            disabled={!!selectedTemplateId}
+          />
+        </Form.Item>
+        <Form.Item
+          noStyle
+          shouldUpdate={(prevValues, currentValues) =>
+            prevValues.bonusPercentage !== currentValues.bonusPercentage
+          }
+        >
+          {({ getFieldValue }) => {
+            const bonusPercentage = getFieldValue("bonusPercentage");
+            if (bonusPercentage && bonusPercentage > 0) {
+              return (
+                <Alert
+                  message={`Ví dụ: Nếu doanh thu 50,000,000 VNĐ × ${bonusPercentage}% = ${(
+                    (50000000 * bonusPercentage) /
+                    100
+                  ).toLocaleString("vi-VN")} VNĐ thưởng`}
+                  type="info"
+                  showIcon
+                />
+              );
+            }
+            return null;
+          }}
+        </Form.Item>
+      </Card>
+
+      {/* Section 3: Hoa hồng từ đơn hàng */}
+      <Alert
+        message="Hoa hồng từ đơn hàng"
+        description="Hoa hồng được tự động tính từ phần trăm triết khấu khi nhân viên được chọn làm tư vấn trong đơn hàng. Không cần thiết lập thêm ở đây."
+        type="info"
+        showIcon
+        className="bg-yellow-50 border-yellow-200"
+      />
     </Form>
   );
 };
@@ -387,7 +502,7 @@ const MemberForm: React.FC<MemberFormProps> = ({
       setSelectedRole(null);
       setActiveTab("info");
       form.setFieldsValue({
-        code: generateRandomCode("MEM_"),
+        code: genCode("MEM_"),
         isActive: true,
       });
       salaryForm.setFieldsValue({
@@ -420,39 +535,38 @@ const MemberForm: React.FC<MemberFormProps> = ({
 
   const handleSaveSalary = async (saveAsTemplate: boolean = false) => {
     try {
+      setLoading(true);
       if (!member?.id) {
         message.warning("Vui lòng lưu thông tin nhân viên trước!");
+        setLoading(false);
         return;
       }
 
       // validateFields() will throw if validation fails, so if we get here, all required fields are valid
       const salaryValues = await salaryForm.validateFields();
 
-      const salaryConfig: SalaryConfig = {
+      const salaryData = {
         salaryType: salaryValues.salaryType,
         salaryAmount: salaryValues.salaryAmount,
-        enableRevenueBonus: salaryValues.enableRevenueBonus || false,
-        bonusPercentage: salaryValues.enableRevenueBonus
-          ? salaryValues.bonusPercentage
-          : undefined,
+        bonusPercentage: salaryValues.bonusPercentage ?? 0,
         salaryTemplateId: salaryValues.salaryTemplateId || undefined,
       };
 
-      // Save salary config
-      await SalaryService.setSalary(member.id, salaryConfig);
+      // Save salary config to Firebase (in members collection)
+      await SalaryService.setSalary(member.id, salaryData);
 
       // Save as template if requested
       if (saveAsTemplate) {
         if (!templateName.trim()) {
           message.warning("Vui lòng nhập tên mẫu lương!");
+          setLoading(false);
           return;
         }
         await SalaryService.createTemplate({
           name: templateName.trim(),
-          salaryType: salaryConfig.salaryType,
-          salaryAmount: salaryConfig.salaryAmount,
-          enableRevenueBonus: salaryConfig.enableRevenueBonus,
-          bonusPercentage: salaryConfig.bonusPercentage,
+          salaryType: salaryData.salaryType,
+          salaryAmount: salaryData.salaryAmount,
+          bonusPercentage: salaryData.bonusPercentage ?? 0,
         });
         message.success("Đã lưu và tạo mẫu lương mới!");
         setSaveAsTemplateModalVisible(false);
@@ -460,9 +574,15 @@ const MemberForm: React.FC<MemberFormProps> = ({
       } else {
         message.success("Đã lưu thiết lập lương!");
       }
+
+      // Close modal after successful save
+      onSuccess();
+      onCancel();
     } catch (error) {
       console.error("Error saving salary:", error);
       message.error("Có lỗi xảy ra khi lưu thiết lập lương!");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -511,20 +631,21 @@ const MemberForm: React.FC<MemberFormProps> = ({
             salaryValues.salaryType &&
             salaryValues.salaryAmount !== undefined
           ) {
-            const salaryConfig: SalaryConfig = {
+            const salaryData = {
               salaryType: salaryValues.salaryType,
               salaryAmount: salaryValues.salaryAmount,
-              enableRevenueBonus: salaryValues.enableRevenueBonus || false,
-              bonusPercentage: salaryValues.enableRevenueBonus
-                ? salaryValues.bonusPercentage
-                : undefined,
+              bonusPercentage: salaryValues.bonusPercentage ?? 0,
               salaryTemplateId: salaryValues.salaryTemplateId || undefined,
             };
-            await SalaryService.setSalary(memberId, salaryConfig);
+            // Save to Firebase (in members collection)
+            await SalaryService.setSalary(memberId, salaryData);
           }
         } catch (salaryError) {
           console.error("Error saving salary:", salaryError);
-          // Don't block member save if salary save fails
+          // Don't block member save if salary save fails, but show warning
+          message.warning(
+            "Đã lưu thông tin nhân viên nhưng có lỗi khi lưu thiết lập lương!"
+          );
         }
       }
 

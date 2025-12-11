@@ -29,7 +29,7 @@ export function LoginForm({ setView }: LoginFormProps) {
       setError(null);
 
       await signInWithEmailAndPassword(auth, values.email, values.password);
-      router.push("/dashboard");
+      router.push("/center");
     } catch (err: any) {
       console.error("Login error:", err);
       setError(getErrorMessage(err));

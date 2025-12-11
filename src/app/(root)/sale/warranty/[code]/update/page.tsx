@@ -54,3 +54,5 @@ const UpdateWarrantyClaimPage: React.FC<UpdateWarrantyClaimPageProps> = ({
 };
 
 export default UpdateWarrantyClaimPage;
+
+

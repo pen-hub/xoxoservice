@@ -3,7 +3,7 @@
 import CommonTable, { PropRowDetails } from "@/components/CommonTable";
 import useFilter from "@/hooks/useFilter";
 import { DepartmentService, IDepartment } from "@/services/departmentService";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { genCode } from "@/utils/genCode";
 import {
   CopyOutlined,
   DeleteOutlined,
@@ -82,7 +82,7 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
       });
     } else if (visible) {
       form.setFieldsValue({
-        code: generateRandomCode("DEPT_"),
+        code: genCode("DEPT_"),
       });
     }
   }, [department, visible, form]);

@@ -157,7 +157,7 @@ export default function RefundManager({
             <Text strong>Loại: </Text>
             <Tag>{RefundTypeLabels[refund.type]}</Tag>
           </div>
-          <div>
+          <div className="block w-full">
             <Text strong>Số tiền: </Text>
             <Text>{refund.amount.toLocaleString("vi-VN")} VNĐ</Text>
           </div>
@@ -216,12 +216,12 @@ export default function RefundManager({
             ]}
           >
             <InputNumber
-              className="w-full"
+              style={{ width: "100%" }}
               formatter={(value) =>
                 `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
               parser={(value) => Number(value?.replace(/,/g, "") || 0) as any}
-              addonAfter="VNĐ"
+              suffix="VNĐ"
               max={orderTotalAmount}
             />
           </Form.Item>
@@ -350,3 +350,4 @@ export default function RefundManager({
     </Form>
   );
 }
+

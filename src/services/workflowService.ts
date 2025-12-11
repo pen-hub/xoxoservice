@@ -10,8 +10,9 @@ import type {
   UpdateWorkflowStaffPayload,
   Workflow,
 } from '@/types/workflow';
+import { genCode } from '@/utils/genCode';
 import type { FirebaseApp } from 'firebase/app';
-import { getDatabase, push, ref, remove, set, update } from 'firebase/database';
+import { getDatabase, ref, remove, set, update } from 'firebase/database';
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -41,15 +42,14 @@ export async function createWorkflow(
   workflow: Omit<Workflow, 'id' | 'createdAt'>
 ): Promise<string> {
   const db = getDB(firebaseApp);
-  const workflowsRef = ref(db, 'xoxo/workflows');
-  const newWorkflowRef = push(workflowsRef);
+  const workflowCode = genCode("WF_");
 
-  await set(newWorkflowRef, {
+  await set(ref(db, `xoxo/workflows/${workflowCode}`), {
     ...workflow,
     createdAt: Date.now(),
   });
 
-  return newWorkflowRef.key!;
+  return workflowCode;
 }
 
 /**
@@ -87,15 +87,14 @@ export async function createStaff(
   staff: Omit<Staff, 'id'>
 ): Promise<string> {
   const db = getDB(firebaseApp);
-  const staffRef = ref(db, 'xoxo/staff');
-  const newStaffRef = push(staffRef);
+  const staffCode = genCode("STAFF_");
 
-  await set(newStaffRef, {
+  await set(ref(db, `xoxo/staff/${staffCode}`), {
     ...staff,
     createdAt: Date.now(),
   });
 
-  return newStaffRef.key!;
+  return staffCode;
 }
 
 /**
@@ -134,17 +133,15 @@ export async function createOrder(
   workflows: Workflow[]
 ): Promise<string> {
   const db = getDB(firebaseApp);
-  const ordersRef = ref(db, 'xoxo/orders');
-  const newOrderRef = push(ordersRef);
-
   const now = Date.now();
-  const orderCode = generateOrderCode();
+  const orderCode = genCode("ORD_");
+  const orderId = genCode("ORD_");
 
   // Build products with workflows
   const products: { [key: string]: OrderProduct } = {};
 
   for (const productPayload of payload.products) {
-    const productKey = push(ref(db, 'temp')).key!; // Generate unique key
+    const productKey = genCode("PROD_"); // Generate unique key
 
     // Clone workflows from templates
     const productWorkflows: { [key: string]: ProductWorkflow } = {};
@@ -193,9 +190,9 @@ export async function createOrder(
     products,
   };
 
-  await set(newOrderRef, orderData);
+  await set(ref(db, `xoxo/orders/${orderId}`), orderData);
 
-  return newOrderRef.key!;
+  return orderId;
 }
 
 /**

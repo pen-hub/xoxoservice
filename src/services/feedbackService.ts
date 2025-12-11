@@ -1,15 +1,15 @@
 import {
-    CustomerFeedback
+  CustomerFeedback
 } from "@/types/feedback";
+import { genCode } from "@/utils/genCode";
 import {
-    get,
-    getDatabase,
-    onValue,
-    push,
-    ref,
-    remove,
-    set,
-    update,
+  get,
+  getDatabase,
+  onValue,
+  ref,
+  remove,
+  set,
+  update,
 } from "firebase/database";
 
 const db = getDatabase();
@@ -57,17 +57,16 @@ export class FeedbackService {
     feedback: Omit<CustomerFeedback, "id" | "createdAt" | "updatedAt">
   ): Promise<CustomerFeedback> {
     const now = new Date().getTime();
-    const feedbackRef = push(ref(db, FEEDBACK_PATH));
-    const feedbackId = feedbackRef.key!;
+    const feedbackCode = genCode("FB_");
 
     const feedbackData: CustomerFeedback = {
       ...feedback,
-      id: feedbackId,
+      id: feedbackCode,
       createdAt: now,
       updatedAt: now,
     };
 
-    await set(feedbackRef, feedbackData);
+    await set(ref(db, `${FEEDBACK_PATH}/${feedbackCode}`), feedbackData);
     return feedbackData;
   }
 
@@ -111,3 +110,5 @@ export class FeedbackService {
     );
   }
 }
+
+

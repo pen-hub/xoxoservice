@@ -325,8 +325,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       const newStatus = destination.droppableId as OrderStatus;
 
-      // Find the order/claim to determine its type
-      const item = workingOrders.find((o) => o.id === draggableId);
+        // Find the order/claim to determine its type
+        const item = workingOrders.find((o) => o.id === draggableId);
       if (!item) {
         message.error("Không tìm thấy đơn hàng!");
         return;
@@ -367,7 +367,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         }
       }
 
-      const itemType = (item as any)?.type || "order";
+        const itemType = (item as any)?.type || "order";
 
       try {
         // Update in Firebase immediately

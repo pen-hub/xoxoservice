@@ -2,22 +2,22 @@
 
 import CommonTable, { PropRowDetails } from "@/components/CommonTable";
 import WrapperContent from "@/components/WrapperContent";
+import { useAuth } from "@/firebase/hooks/useAuth";
+import { useRealtimeValue } from "@/firebase/hooks/useRealtime";
 import useFilter from "@/hooks/useFilter";
+import { FinanceService } from "@/services/financeService";
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
-  DeleteOutlined,
   DollarOutlined,
-  EditOutlined,
   FileExcelOutlined,
   PlusOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
 import {
+  App,
   Avatar,
-  Badge,
-  Button,
   Card,
   Col,
   DatePicker,
@@ -32,243 +32,36 @@ import {
   Statistic,
   Tag,
   Typography,
-  message,
 } from "antd";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const { Text } = Typography;
 
-// Mock Data - Transactions
+// Transaction categories
 const transactionCategories = {
-  income: [
-    { id: "sales", name: "Doanh thu bán hàng", color: "green" },
-    { id: "service", name: "Dịch vụ", color: "cyan" },
-    { id: "investment", name: "Đầu tư", color: "blue" },
-    { id: "other_income", name: "Thu nhập khác", color: "geekblue" },
-  ],
-  expense: [
-    { id: "material", name: "Nguyên vật liệu", color: "red" },
-    { id: "salary", name: "Lương nhân viên", color: "orange" },
-    { id: "rent", name: "Thuê mặt bằng", color: "volcano" },
-    { id: "utilities", name: "Điện nước", color: "magenta" },
-    { id: "marketing", name: "Marketing", color: "purple" },
-    { id: "transport", name: "Vận chuyển", color: "gold" },
-    { id: "maintenance", name: "Bảo trì", color: "lime" },
-    { id: "other_expense", name: "Chi phí khác", color: "default" },
-  ],
+  inventory: { id: "inventory", name: "Kho", color: "blue" },
+  order: { id: "order", name: "Đơn hàng", color: "green" },
+  salary: { id: "salary", name: "Lương", color: "orange" },
 };
 
-const paymentMethods = [
-  { id: "cash", name: "Tiền mặt", icon: "💵" },
-  { id: "bank", name: "Chuyển khoản", icon: "🏦" },
-  { id: "card", name: "Thẻ", icon: "💳" },
-  { id: "ewallet", name: "Ví điện tử", icon: "📱" },
-];
-
-const mockTransactions = [
-  {
-    id: 1,
-    date: "2024-12-03",
-    type: "income",
-    category: "sales",
-    amount: 50000000,
-    description: "Thanh toán đơn hàng #DH001",
-    paymentMethod: "bank",
-    reference: "DH001",
-    customer: "Công ty TNHH ABC",
-    createdBy: {
-      name: "Nguyễn Hà",
-      avatar: "https://i.pravatar.cc/150?img=2",
-    },
-    status: "completed",
-    notes: "Đã nhận đủ thanh toán",
-  },
-  {
-    id: 2,
-    date: "2024-12-03",
-    type: "expense",
-    category: "material",
-    amount: 15000000,
-    description: "Mua vải cotton cao cấp",
-    paymentMethod: "bank",
-    reference: "PO001",
-    supplier: "Nhà cung cấp Vải Việt",
-    createdBy: {
-      name: "Trần Minh",
-      avatar: "https://i.pravatar.cc/150?img=1",
-    },
-    status: "completed",
-    notes: "Đã nhận hàng đầy đủ",
-  },
-  {
-    id: 3,
-    date: "2024-12-02",
-    type: "expense",
-    category: "salary",
-    amount: 35000000,
-    description: "Lương tháng 11/2024",
-    paymentMethod: "bank",
-    reference: "SAL-11/2024",
-    createdBy: {
-      name: "Lê Tú",
-      avatar: "https://i.pravatar.cc/150?img=3",
-    },
-    status: "completed",
-    notes: "Đã chuyển lương cho 25 nhân viên",
-  },
-  {
-    id: 4,
-    date: "2024-12-02",
-    type: "income",
-    category: "service",
-    amount: 8000000,
-    description: "Dịch vụ gia công",
-    paymentMethod: "cash",
-    reference: "SV001",
-    customer: "Xưởng May Hòa Bình",
-    createdBy: {
-      name: "Nguyễn Hà",
-      avatar: "https://i.pravatar.cc/150?img=2",
-    },
-    status: "completed",
-    notes: "",
-  },
-  {
-    id: 5,
-    date: "2024-12-01",
-    type: "expense",
-    category: "rent",
-    amount: 20000000,
-    description: "Tiền thuê xưởng tháng 12/2024",
-    paymentMethod: "bank",
-    reference: "RENT-12/2024",
-    supplier: "Chủ nhà",
-    createdBy: {
-      name: "Trần Minh",
-      avatar: "https://i.pravatar.cc/150?img=1",
-    },
-    status: "completed",
-    notes: "Đã thanh toán đầy đủ",
-  },
-  {
-    id: 6,
-    date: "2024-12-01",
-    type: "expense",
-    category: "utilities",
-    amount: 5500000,
-    description: "Tiền điện + nước tháng 11/2024",
-    paymentMethod: "bank",
-    reference: "UTIL-11/2024",
-    createdBy: {
-      name: "Lê Tú",
-      avatar: "https://i.pravatar.cc/150?img=3",
-    },
-    status: "completed",
-    notes: "",
-  },
-  {
-    id: 7,
-    date: "2024-11-30",
-    type: "income",
-    category: "sales",
-    amount: 65000000,
-    description: "Thanh toán đơn hàng #DH002",
-    paymentMethod: "bank",
-    reference: "DH002",
-    customer: "Xưởng May Tiến Phát",
-    createdBy: {
-      name: "Nguyễn Hà",
-      avatar: "https://i.pravatar.cc/150?img=2",
-    },
-    status: "completed",
-    notes: "Thanh toán đợt 2/2",
-  },
-  {
-    id: 8,
-    date: "2024-11-29",
-    type: "expense",
-    category: "marketing",
-    amount: 3000000,
-    description: "Quảng cáo Facebook Ads",
-    paymentMethod: "card",
-    reference: "MKT-11/2024",
-    createdBy: {
-      name: "Trần Minh",
-      avatar: "https://i.pravatar.cc/150?img=1",
-    },
-    status: "completed",
-    notes: "Chiến dịch tháng 11",
-  },
-  {
-    id: 9,
-    date: "2024-11-28",
-    type: "expense",
-    category: "transport",
-    amount: 2500000,
-    description: "Chi phí vận chuyển hàng",
-    paymentMethod: "cash",
-    reference: "SHIP-001",
-    createdBy: {
-      name: "Lê Tú",
-      avatar: "https://i.pravatar.cc/150?img=3",
-    },
-    status: "completed",
-    notes: "Giao hàng đến Đà Nẵng",
-  },
-  {
-    id: 10,
-    date: "2024-11-27",
-    type: "expense",
-    category: "maintenance",
-    amount: 4000000,
-    description: "Bảo trì máy móc",
-    paymentMethod: "bank",
-    reference: "MAINT-001",
-    supplier: "Công ty Bảo trì ABC",
-    createdBy: {
-      name: "Trần Minh",
-      avatar: "https://i.pravatar.cc/150?img=1",
-    },
-    status: "completed",
-    notes: "Bảo trì định kỳ quý 4",
-  },
-  {
-    id: 11,
-    date: "2024-12-03",
-    type: "income",
-    category: "sales",
-    amount: 25000000,
-    description: "Đặt cọc đơn hàng #DH003",
-    paymentMethod: "bank",
-    reference: "DH003",
-    customer: "May Mặc Thành Đạt",
-    createdBy: {
-      name: "Nguyễn Hà",
-      avatar: "https://i.pravatar.cc/150?img=2",
-    },
-    status: "pending",
-    notes: "Chờ xác nhận chuyển khoản",
-  },
-];
-
-interface Transaction {
-  id: number;
-  date: string;
+// Finance Transaction interface
+interface FinanceTransaction {
+  id: string;
+  date: number; // Timestamp
   type: "income" | "expense";
-  category: string;
+  category: "inventory" | "order" | "salary";
   amount: number;
   description: string;
-  paymentMethod: string;
-  reference: string;
-  customer?: string;
-  supplier?: string;
-  createdBy: {
-    name: string;
-    avatar: string;
-  };
-  status: "completed" | "pending" | "cancelled";
-  notes: string;
+  reference: string; // Order code, transaction ID, etc.
+  sourceId?: string; // ID của order, transaction, refund, etc.
+  sourceType?: "order" | "inventory" | "refund" | "manual"; // Nguồn gốc
+  createdBy?: string;
+  createdByName?: string;
+  createdAt: number;
+  updatedAt: number;
+  notes?: string;
+  isManual?: boolean; // Đánh dấu là tạo thủ công
 }
 
 const formatCurrency = (value: number) =>
@@ -277,26 +70,19 @@ const formatCurrency = (value: number) =>
     currency: "VND",
   }).format(value);
 
-const getCategoryInfo = (type: string, categoryId: string) => {
-  const categories =
-    type === "income"
-      ? transactionCategories.income
-      : transactionCategories.expense;
-  return categories.find((c) => c.id === categoryId);
-};
-
-const getPaymentMethodInfo = (methodId: string) => {
-  return paymentMethods.find((m) => m.id === methodId);
+const getCategoryInfo = (categoryId: string) => {
+  return transactionCategories[
+    categoryId as keyof typeof transactionCategories
+  ];
 };
 
 // Transaction Detail Drawer
-const TransactionDetailDrawer: React.FC<PropRowDetails<Transaction>> = ({
+const TransactionDetailDrawer: React.FC<PropRowDetails<FinanceTransaction>> = ({
   data,
 }) => {
   if (!data) return null;
 
-  const categoryInfo = getCategoryInfo(data.type, data.category);
-  const paymentInfo = getPaymentMethodInfo(data.paymentMethod);
+  const categoryInfo = getCategoryInfo(data.category);
 
   return (
     <div>
@@ -335,70 +121,42 @@ const TransactionDetailDrawer: React.FC<PropRowDetails<Transaction>> = ({
         <Descriptions.Item label="Mô tả">
           <Text strong>{data.description}</Text>
         </Descriptions.Item>
-        <Descriptions.Item label="Phương thức">
-          <Tag>
-            {paymentInfo?.icon} {paymentInfo?.name}
-          </Tag>
-        </Descriptions.Item>
         <Descriptions.Item label="Mã tham chiếu">
           <Text copyable>{data.reference}</Text>
         </Descriptions.Item>
-        {data.customer && (
-          <Descriptions.Item label="Khách hàng">
-            {data.customer}
+        <Descriptions.Item label="Nguồn">
+          <Tag>
+            {data.sourceType === "order"
+              ? "Đơn hàng"
+              : data.sourceType === "inventory"
+              ? "Phiếu nhập kho"
+              : data.sourceType === "refund"
+              ? "Hoàn tiền"
+              : data.isManual
+              ? "Tạo thủ công"
+              : "Tự động"}
+          </Tag>
+        </Descriptions.Item>
+        {data.createdByName && (
+          <Descriptions.Item label="Người tạo">
+            <Space>
+              <Avatar size="small">{data.createdByName.charAt(0)}</Avatar>
+              {data.createdByName}
+            </Space>
           </Descriptions.Item>
         )}
-        {data.supplier && (
-          <Descriptions.Item label="Nhà cung cấp">
-            {data.supplier}
-          </Descriptions.Item>
-        )}
-        <Descriptions.Item label="Trạng thái">
-          <Badge
-            status={
-              data.status === "completed"
-                ? "success"
-                : data.status === "pending"
-                ? "warning"
-                : "error"
-            }
-            text={
-              data.status === "completed"
-                ? "Hoàn thành"
-                : data.status === "pending"
-                ? "Đang chờ"
-                : "Đã hủy"
-            }
-          />
-        </Descriptions.Item>
-        <Descriptions.Item label="Người tạo">
-          <Space>
-            <Avatar src={data.createdBy.avatar} size="small" />
-            {data.createdBy.name}
-          </Space>
-        </Descriptions.Item>
         {data.notes && (
           <Descriptions.Item label="Ghi chú">{data.notes}</Descriptions.Item>
         )}
       </Descriptions>
-
-      <Space className="mt-4 w-full justify-end">
-        <Button type="primary" icon={<EditOutlined />}>
-          Chỉnh sửa
-        </Button>
-        <Button danger icon={<DeleteOutlined />}>
-          Xóa
-        </Button>
-      </Space>
     </div>
   );
 };
 
 // Main Component
 export default function FinancePage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(
-    mockTransactions as Transaction[]
-  );
+  const { user } = useAuth();
+  const { message: antdMessage } = App.useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const {
@@ -410,50 +168,74 @@ export default function FinancePage() {
     handlePageChange,
   } = useFilter();
 
+  // Load finance transactions from Firebase (tất cả transactions đã được tạo tự động hoặc thủ công)
+  const { data: financeTransactionsData } = useRealtimeValue<{
+    [key: string]: FinanceTransaction;
+  }>("xoxo/finance/transactions");
+
+  // Transform data to FinanceTransaction format
+  const transactions = useMemo(() => {
+    const allTransactions: FinanceTransaction[] = [];
+
+    // Lấy tất cả finance transactions đã được tạo (tự động hoặc thủ công)
+    if (financeTransactionsData) {
+      Object.entries(financeTransactionsData).forEach(
+        ([transactionId, transaction]) => {
+          allTransactions.push({
+            ...transaction,
+            id: transactionId,
+          });
+        }
+      );
+    }
+
+    // Sort by date descending
+    return allTransactions.sort((a, b) => b.date - a.date);
+  }, [financeTransactionsData]);
+
   // Calculate summary
   const filteredTransactions = applyFilter(transactions);
   const totalIncome = filteredTransactions
-    .filter((t) => t.type === "income" && t.status === "completed")
+    .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
   const totalExpense = filteredTransactions
-    .filter((t) => t.type === "expense" && t.status === "completed")
+    .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
-  // Handle add transaction
+  // Handle add manual transaction
   const handleAddTransaction = async () => {
     try {
       const values = await form.validateFields();
-      const newTransaction: Transaction = {
-        id: transactions.length + 1,
-        date: values.date.format("YYYY-MM-DD"),
-        type: values.type,
-        category: values.category,
-        amount: values.amount,
-        description: values.description,
-        paymentMethod: values.paymentMethod,
-        reference: values.reference,
-        customer: values.customer,
-        supplier: values.supplier,
-        createdBy: {
-          name: "Người dùng hiện tại",
-          avatar: "https://i.pravatar.cc/150?img=4",
-        },
-        status: "completed",
-        notes: values.notes || "",
-      };
 
-      setTransactions([newTransaction, ...transactions]);
-      message.success("Thêm giao dịch thành công!");
+      if (!user?.uid) {
+        antdMessage.error("Vui lòng đăng nhập để tạo giao dịch!");
+        return;
+      }
+
+      await FinanceService.createManualTransaction(
+        {
+          date: values.date.valueOf(),
+          type: values.type,
+          category: values.category,
+          amount: values.amount,
+          description: values.description,
+          reference: values.reference || `MANUAL_${Date.now()}`,
+          sourceType: "manual",
+          notes: values.notes || "",
+        },
+        user.uid,
+        user.displayName || user.email || "Người dùng hiện tại"
+      );
+
+      antdMessage.success("Thêm giao dịch thành công!");
       setIsModalOpen(false);
       form.resetFields();
     } catch (error) {
       console.error("Validation failed:", error);
+      antdMessage.error("Không thể tạo giao dịch. Vui lòng thử lại!");
     }
   };
-
-  // Watch type field to filter categories
-  const transactionType = Form.useWatch("type", form);
 
   // Filter fields configuration
   const filterFields = [
@@ -473,49 +255,23 @@ export default function FinancePage() {
       label: "Danh mục",
       type: "select" as const,
       options: [
-        ...transactionCategories.income.map((c) => ({
-          label: `📈 ${c.name}`,
-          value: c.id,
-        })),
-        ...transactionCategories.expense.map((c) => ({
-          label: `📉 ${c.name}`,
-          value: c.id,
-        })),
-      ],
-    },
-    {
-      name: "paymentMethod",
-      key: "paymentMethod",
-      label: "Phương thức",
-      type: "select" as const,
-      options: paymentMethods.map((m) => ({
-        label: `${m.icon} ${m.name}`,
-        value: m.id,
-      })),
-    },
-    {
-      name: "status",
-      key: "status",
-      label: "Trạng thái",
-      type: "select" as const,
-      options: [
-        { label: "Hoàn thành", value: "completed" },
-        { label: "Đang chờ", value: "pending" },
-        { label: "Đã hủy", value: "cancelled" },
+        { label: "Kho", value: "inventory" },
+        { label: "Đơn hàng", value: "order" },
+        { label: "Lương", value: "salary" },
       ],
     },
   ];
 
   // Table columns
-  const columns: TableColumnsType<Transaction> = [
+  const columns: TableColumnsType<FinanceTransaction> = [
     {
       title: "Ngày",
       dataIndex: "date",
       key: "date",
       width: 120,
       fixed: "left",
-      render: (date: string) => dayjs(date).format("DD/MM/YYYY"),
-      sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),
+      render: (date: number) => dayjs(date).format("DD/MM/YYYY"),
+      sorter: (a, b) => a.date - b.date,
     },
     {
       title: "Loại",
@@ -536,9 +292,9 @@ export default function FinancePage() {
       title: "Danh mục",
       dataIndex: "category",
       key: "category",
-      width: 160,
-      render: (category: string, record: Transaction) => {
-        const categoryInfo = getCategoryInfo(record.type, category);
+      width: 120,
+      render: (category: string) => {
+        const categoryInfo = getCategoryInfo(category);
         return <Tag color={categoryInfo?.color}>{categoryInfo?.name}</Tag>;
       },
     },
@@ -555,7 +311,7 @@ export default function FinancePage() {
       key: "amount",
       width: 150,
       align: "left",
-      render: (amount: number, record: Transaction) => (
+      render: (amount: number, record: FinanceTransaction) => (
         <Text
           strong
           className={
@@ -569,77 +325,55 @@ export default function FinancePage() {
       sorter: (a, b) => a.amount - b.amount,
     },
     {
-      title: "Phương thức",
-      dataIndex: "paymentMethod",
-      key: "paymentMethod",
-      width: 140,
-      render: (method: string) => {
-        const methodInfo = getPaymentMethodInfo(method);
-        return (
-          <Tag>
-            {methodInfo?.icon} {methodInfo?.name}
-          </Tag>
-        );
-      },
-    },
-    {
       title: "Mã tham chiếu",
       dataIndex: "reference",
       key: "reference",
       width: 140,
     },
     {
-      title: "Đối tác",
-      key: "partner",
-      width: 180,
-      render: (_: unknown, record: Transaction) =>
-        record.customer || record.supplier || "-",
+      title: "Nguồn",
+      key: "source",
+      width: 120,
+      render: (_: unknown, record: FinanceTransaction) => (
+        <Tag>
+          {record.isManual
+            ? "Tạo thủ công"
+            : record.sourceType === "order"
+            ? "Đơn hàng"
+            : record.sourceType === "inventory"
+            ? "Phiếu nhập kho"
+            : record.sourceType === "refund"
+            ? "Hoàn tiền"
+            : "Tự động"}
+        </Tag>
+      ),
     },
     {
       title: "Người tạo",
-      dataIndex: "createdBy",
-      key: "createdBy",
+      dataIndex: "createdByName",
+      key: "createdByName",
       width: 140,
-      render: (createdBy: Transaction["createdBy"]) => (
-        <Space>
-          <Avatar src={createdBy.avatar} size="small" />
-          <Text>{createdBy.name}</Text>
-        </Space>
-      ),
-    },
-    {
-      title: "Trạng thái",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      fixed: "right",
-      render: (status: string) => (
-        <Badge
-          status={
-            status === "completed"
-              ? "success"
-              : status === "pending"
-              ? "warning"
-              : "error"
-          }
-          text={
-            status === "completed"
-              ? "Hoàn thành"
-              : status === "pending"
-              ? "Đang chờ"
-              : "Đã hủy"
-          }
-        />
-      ),
+      render: (name: string, record: FinanceTransaction) =>
+        name ? (
+          <Space>
+            <Avatar size="small">{name.charAt(0)}</Avatar>
+            <Text>{name}</Text>
+          </Space>
+        ) : (
+          "-"
+        ),
     },
   ];
+
+  // Watch type field to filter categories
+  const transactionType = Form.useWatch("type", form);
 
   return (
     <WrapperContent
       header={{
         searchInput: {
           placeholder: "Tìm kiếm giao dịch...",
-          filterKeys: ["description", "reference", "customer", "supplier"],
+          filterKeys: ["description", "reference"],
         },
         filters: {
           fields: filterFields,
@@ -648,11 +382,6 @@ export default function FinancePage() {
           onReset: reset,
         },
         buttonEnds: [
-          {
-            name: "Nhập Excel",
-            icon: <FileExcelOutlined />,
-            onClick: () => console.log("Import"),
-          },
           {
             name: "Xuất Excel",
             icon: <FileExcelOutlined />,
@@ -726,7 +455,7 @@ export default function FinancePage() {
       </div>
 
       {/* Table */}
-      <CommonTable<Transaction>
+      <CommonTable<FinanceTransaction>
         columns={columns}
         dataSource={filteredTransactions}
         loading={false}
@@ -754,8 +483,8 @@ export default function FinancePage() {
           layout="vertical"
           initialValues={{
             date: dayjs(),
-            type: "income",
-            status: "completed",
+            type: "expense",
+            category: "salary",
           }}
         >
           <Row gutter={16}>
@@ -798,17 +527,11 @@ export default function FinancePage() {
                 rules={[{ required: true, message: "Vui lòng chọn danh mục!" }]}
               >
                 <Select placeholder="Chọn danh mục">
-                  {transactionType === "income"
-                    ? transactionCategories.income.map((cat) => (
-                        <Select.Option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </Select.Option>
-                      ))
-                    : transactionCategories.expense.map((cat) => (
-                        <Select.Option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </Select.Option>
-                      ))}
+                  {Object.values(transactionCategories).map((cat) => (
+                    <Select.Option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </Select.Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -846,52 +569,8 @@ export default function FinancePage() {
             <Input placeholder="Nhập mô tả giao dịch" />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="paymentMethod"
-                label="Phương thức thanh toán"
-                rules={[
-                  { required: true, message: "Vui lòng chọn phương thức!" },
-                ]}
-              >
-                <Select placeholder="Chọn phương thức">
-                  {paymentMethods.map((method) => (
-                    <Select.Option key={method.id} value={method.id}>
-                      {method.icon} {method.name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="reference"
-                label="Mã tham chiếu"
-                rules={[{ required: true, message: "Vui lòng nhập mã!" }]}
-              >
-                <Input placeholder="Nhập mã tham chiếu" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            noStyle
-            shouldUpdate={(prevValues, currentValues) =>
-              prevValues.type !== currentValues.type
-            }
-          >
-            {({ getFieldValue }) =>
-              getFieldValue("type") === "income" ? (
-                <Form.Item name="customer" label="Khách hàng">
-                  <Input placeholder="Nhập tên khách hàng" />
-                </Form.Item>
-              ) : (
-                <Form.Item name="supplier" label="Nhà cung cấp">
-                  <Input placeholder="Nhập tên nhà cung cấp" />
-                </Form.Item>
-              )
-            }
+          <Form.Item name="reference" label="Mã tham chiếu">
+            <Input placeholder="Nhập mã tham chiếu (tùy chọn)" />
           </Form.Item>
 
           <Form.Item name="notes" label="Ghi chú">

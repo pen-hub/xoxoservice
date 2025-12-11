@@ -1,5 +1,5 @@
 const length = 6;
-export function generateRandomCode(prefix: string = "") {
+export function genCode(prefix: string = "") {
   const charset = "abcdefghijklmnopqrstuvwxyz123456789";
 
   // Random phần ký tự

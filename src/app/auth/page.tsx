@@ -1,14 +1,33 @@
 "use client";
 
 import { ForgotPasswordForm } from "@/components/ForgotPasswordForm";
+import LoaderApp from "@/components/LoaderApp";
 import { LoginForm } from "@/components/LoginForm";
 import { SignupForm } from "@/components/SignupForm";
-import { useState } from "react";
+import { useUser } from "@/firebase/provider";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type AuthView = "login" | "signup" | "forgot-password";
 
 export default function AuthPage() {
   const [view, setView] = useState<AuthView>("login");
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.replace("/center");
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading) {
+    return <LoaderApp />;
+  }
+
+  if (user) {
+    return <LoaderApp />;
+  }
 
   const renderView = () => {
     switch (view) {
@@ -38,7 +57,6 @@ export default function AuthPage() {
           </p>
         </div>
         {renderView()}
-        
       </div>
     </div>
   );

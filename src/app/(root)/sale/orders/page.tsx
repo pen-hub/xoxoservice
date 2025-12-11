@@ -6,7 +6,7 @@ import { useRealtimeList } from "@/firebase/hooks/useRealtime";
 import useFilter from "@/hooks/useFilter";
 import { IMembers } from "@/types/members";
 import { FirebaseOrderData, OrderStatus } from "@/types/order";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { genCode } from "@/utils/genCode";
 import {
   EyeOutlined,
   PlusOutlined,
@@ -180,18 +180,18 @@ export default function OrderListPage() {
           return "-";
         }
         return (
-          <Space vertical>
+          <div className="flex flex-col gap-1 overflow-y-auto max-h-20">
             {issues.map((issue) => {
               return (
                 <Tag
                   color="purple"
-                  key={`issue-${issue}-${generateRandomCode("REACTKEY")}`}
+                  key={`issue-${issue}-${genCode("REACTKEY")}`}
                 >
                   {issue}
                 </Tag>
               );
             })}
-          </Space>
+          </div>
         );
       },
     },

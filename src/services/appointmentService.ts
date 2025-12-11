@@ -1,17 +1,17 @@
 import {
-    Appointment,
-    AppointmentStatus
+  Appointment,
+  AppointmentStatus
 } from "@/types/appointment";
+import { genCode } from "@/utils/genCode";
 import dayjs from "dayjs";
 import {
-    get,
-    getDatabase,
-    onValue,
-    push,
-    ref,
-    remove,
-    set,
-    update
+  get,
+  getDatabase,
+  onValue,
+  ref,
+  remove,
+  set,
+  update
 } from "firebase/database";
 
 const db = getDatabase();
@@ -138,17 +138,16 @@ export class AppointmentService {
     }
 
     const now = new Date().getTime();
-    const appointmentRef = push(ref(db, APPOINTMENTS_PATH));
-    const appointmentId = appointmentRef.key!;
+    const appointmentCode = genCode("APT_");
 
     const appointmentData: Appointment = {
       ...appointment,
-      id: appointmentId,
+      id: appointmentCode,
       createdAt: now,
       updatedAt: now,
     };
 
-    await set(appointmentRef, removeUndefined(appointmentData));
+    await set(ref(db, `${APPOINTMENTS_PATH}/${appointmentCode}`), removeUndefined(appointmentData));
     return appointmentData;
   }
 
@@ -228,3 +227,5 @@ export class AppointmentService {
     );
   }
 }
+
+

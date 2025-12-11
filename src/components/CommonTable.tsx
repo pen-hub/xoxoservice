@@ -10,7 +10,7 @@ export type PropRowDetails<T> = {
 };
 interface ICommonTableProps<T> {
   sortable?: boolean;
-  rowKey?: string
+  rowKey?: string | ((record: T) => React.Key);
   total?: number;
   dataSource?: T[];
   columns: TableColumnsType<T>;
@@ -40,7 +40,7 @@ const CommonTable = <T extends object>({
   pagination,
   onRowClick,
   rowSelection,
-  rowKey = "id",
+  rowKey = "code",
 }: ICommonTableProps<T>) => {
   const isMobile = useIsMobile();
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
@@ -182,12 +182,57 @@ const CommonTable = <T extends object>({
     ),
   };
 
+  // Generate rowKey with fallback logic when rowKey is string but property might not exist
+  const getRowKeyWithFallback = ():
+    | string
+    | ((record: T, index?: number) => React.Key) => {
+    if (typeof rowKey === "function") {
+      return rowKey;
+    }
+
+    if (typeof rowKey === "string") {
+      // Return a function that tries the rowKey property first, then falls back
+      return (record: T, index?: number): React.Key => {
+        const keyValue = (record as any)[rowKey];
+        if (keyValue !== undefined && keyValue !== null) {
+          return String(keyValue);
+        }
+        // Fallback: try common key properties
+        if ("key" in record && (record as any).key !== undefined) {
+          return String((record as any).key);
+        }
+        if ("id" in record && (record as any).id !== undefined) {
+          return String((record as any).id);
+        }
+        // Final fallback: use index
+        return index !== undefined ? index : `row-${Math.random()}`;
+      };
+    }
+
+    // Default fallback function
+    return (record: T, index?: number): React.Key => {
+      if ("key" in record && (record as any).key !== undefined) {
+        return String((record as any).key);
+      }
+      if ("id" in record && (record as any).id !== undefined) {
+        return String((record as any).id);
+      }
+      return index !== undefined ? index : `row-${Math.random()}`;
+    };
+  };
+
+  const finalRowKey = rowKey
+    ? typeof rowKey === "string"
+      ? getRowKeyWithFallback()
+      : rowKey
+    : getRowKeyWithFallback();
+
   return (
     <>
       <div className="relative">
         <Table<T>
           {...(paging ? footerProps : {})}
-          rowKey={rowKey}
+          rowKey={finalRowKey}
           bordered={true}
           loading={loading}
           columns={columns}

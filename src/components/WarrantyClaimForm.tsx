@@ -21,7 +21,7 @@ import {
   type WorkflowData,
 } from "@/types/order";
 import { WarrantyClaim, WarrantyClaimStatus } from "@/types/warrantyClaim";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { genCode } from "@/utils/genCode";
 import { getBase64 } from "@/utils/getBase64";
 import { groupMembersByRole } from "@/utils/membersMapRole";
 import {
@@ -97,7 +97,7 @@ const ProductCard: React.FC<{
   const { message } = App.useApp();
 
   const addWorkflow = () => {
-    const newWorkflowCode = generateRandomCode("WF_");
+    const newWorkflowCode = genCode("WF_");
     const newWorkflow: WorkflowData = {
       id: newWorkflowCode,
       members: [],
@@ -517,7 +517,7 @@ const WarrantyClaimForm = forwardRef<ChildHandle, WarrantyClaimFormProps>(
           createdBy: user.uid,
           createdByName:
             user.displayName || user.email || "Người dùng hiện tại",
-          code: generateRandomCode("WC_"),
+          code: genCode("WC_"),
           orderDate: dayjs(),
         });
       }
@@ -586,13 +586,12 @@ const WarrantyClaimForm = forwardRef<ChildHandle, WarrantyClaimFormProps>(
     };
 
     const addProduct = () => {
-      const newProductId = generateRandomCode("PRO_");
+      const newProductId = genCode("PRO_");
       const newProduct: ProductData = {
         id: newProductId,
         name: "",
         quantity: 1,
         price: 0, // Warranty claims don't have price
-        commissionPercentage: 0, // Warranty claims don't have commission
         images: [],
         workflows: [],
       };
@@ -737,7 +736,7 @@ const WarrantyClaimForm = forwardRef<ChildHandle, WarrantyClaimFormProps>(
             code:
               mode === "update" && existingClaim
                 ? existingClaim.code
-                : values.code || generateRandomCode("WC_"),
+                : values.code || genCode("WC_"),
             originalOrderId: originalOrder?.code || originalOrderCode,
             originalOrderCode: originalOrderCode,
             customerName: values.customerName,
@@ -783,7 +782,6 @@ const WarrantyClaimForm = forwardRef<ChildHandle, WarrantyClaimFormProps>(
                 name: product.name,
                 quantity: product.quantity,
                 price: 0, // Warranty claims don't have price
-                commissionPercentage: 0, // Warranty claims don't have commission
                 images: product.images.map((img: any) => ({
                   uid: img.uid,
                   name: img.name,
@@ -906,7 +904,7 @@ const WarrantyClaimForm = forwardRef<ChildHandle, WarrantyClaimFormProps>(
           createdBy: user.uid,
           createdByName:
             user.displayName || user.email || "Người dùng hiện tại",
-          code: generateRandomCode("WC_"),
+          code: genCode("WC_"),
           orderDate: dayjs(),
         });
       } else if (mode === "update" && existingClaim) {
@@ -1317,3 +1315,4 @@ const WarrantyClaimForm = forwardRef<ChildHandle, WarrantyClaimFormProps>(
 WarrantyClaimForm.displayName = "WarrantyClaimForm";
 
 export default WarrantyClaimForm;
+

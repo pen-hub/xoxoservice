@@ -1,20 +1,19 @@
 import {
-  FirebaseSalaryConfigs,
-  SalaryConfig,
-  SalaryTemplate
+    SalaryTemplate,
+    SalaryType
 } from "@/types/salary";
 import {
-  get,
-  getDatabase,
-  onValue,
-  ref,
-  remove,
-  set,
-  update,
+    get,
+    getDatabase,
+    onValue,
+    ref,
+    remove,
+    set,
+    update,
 } from "firebase/database";
 
 const db = getDatabase();
-const SALARIES_PATH = "xoxo/salaries";
+const MEMBERS_PATH = "xoxo/members";
 const SALARY_TEMPLATES_PATH = "xoxo/salaryTemplates";
 
 // Helper function to remove undefined values from object
@@ -29,53 +28,71 @@ function removeUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
 }
 
 export class SalaryService {
-  // ========== SALARY CONFIGURATIONS ==========
+  // ========== SALARY CONFIGURATIONS (stored in xoxo/members) ==========
 
   static async getSalaryByMemberId(
     memberId: string
-  ): Promise<SalaryConfig | null> {
-    const snapshot = await get(ref(db, `${SALARIES_PATH}/${memberId}`));
-    const data = snapshot.val();
-    return data || null;
+  ): Promise<{ salaryType?: SalaryType; salaryAmount?: number; bonusPercentage?: number; salaryTemplateId?: string } | null> {
+    const snapshot = await get(ref(db, `${MEMBERS_PATH}/${memberId}`));
+    const member = snapshot.val();
+    if (!member) return null;
+
+    return {
+      salaryType: member.salaryType,
+      salaryAmount: member.salaryAmount,
+      bonusPercentage: member.bonusPercentage ?? 0,
+      salaryTemplateId: member.salaryTemplateId,
+    };
   }
 
   static async setSalary(
     memberId: string,
-    salary: SalaryConfig
+    salary: { salaryType: SalaryType; salaryAmount: number; bonusPercentage?: number; salaryTemplateId?: string }
   ): Promise<void> {
-    const now = new Date().getTime();
     const salaryData = removeUndefined({
-      ...salary,
-      updatedAt: now,
-      createdAt: salary.createdAt || now,
+      salaryType: salary.salaryType,
+      salaryAmount: salary.salaryAmount,
+      bonusPercentage: salary.bonusPercentage ?? 0,
+      salaryTemplateId: salary.salaryTemplateId,
+      updatedAt: new Date().getTime(),
     });
-    await set(ref(db, `${SALARIES_PATH}/${memberId}`), salaryData);
+    await update(ref(db, `${MEMBERS_PATH}/${memberId}`), salaryData);
+  }
+
+  // Get all members that use a specific template
+  static async getMembersByTemplateId(templateId: string): Promise<string[]> {
+    const snapshot = await get(ref(db, MEMBERS_PATH));
+    const members = snapshot.val() || {};
+    const memberIds: string[] = [];
+
+    Object.entries(members).forEach(([id, member]: [string, any]) => {
+      if (member.salaryTemplateId === templateId) {
+        memberIds.push(id);
+      }
+    });
+
+    return memberIds;
   }
 
   static async updateSalary(
     memberId: string,
-    salary: Partial<SalaryConfig>
+    salary: Partial<{ salaryType: SalaryType; salaryAmount: number; bonusPercentage?: number }>
   ): Promise<void> {
     const salaryData = removeUndefined({
       ...salary,
+      bonusPercentage: salary.bonusPercentage ?? 0,
       updatedAt: new Date().getTime(),
     });
-    await update(ref(db, `${SALARIES_PATH}/${memberId}`), salaryData);
+    await update(ref(db, `${MEMBERS_PATH}/${memberId}`), salaryData);
   }
 
   static async deleteSalary(memberId: string): Promise<void> {
-    await remove(ref(db, `${SALARIES_PATH}/${memberId}`));
-  }
-
-  static onSalarySnapshot(
-    callback: (salaries: FirebaseSalaryConfigs) => void
-  ): () => void {
-    const salariesRef = ref(db, SALARIES_PATH);
-    const unsubscribe = onValue(salariesRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      callback(data);
+    await update(ref(db, `${MEMBERS_PATH}/${memberId}`), {
+      salaryType: null,
+      salaryAmount: null,
+      bonusPercentage: null,
+      updatedAt: new Date().getTime(),
     });
-    return unsubscribe;
   }
 
   // ========== SALARY TEMPLATES ==========
@@ -102,12 +119,15 @@ export class SalaryService {
     const templateId = `TEMPLATE_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
-    const templateData = removeUndefined({
-      ...template,
+    const templateData = {
+      name: template.name,
+      salaryType: template.salaryType,
+      salaryAmount: template.salaryAmount,
+      bonusPercentage: template.bonusPercentage ?? 0,
       id: templateId,
       createdAt: now,
       updatedAt: now,
-    });
+    };
     await set(
       ref(db, `${SALARY_TEMPLATES_PATH}/${templateId}`),
       templateData
@@ -121,9 +141,22 @@ export class SalaryService {
   ): Promise<void> {
     const templateData = removeUndefined({
       ...template,
+      bonusPercentage: template.bonusPercentage ?? 0,
       updatedAt: new Date().getTime(),
     });
     await update(ref(db, `${SALARY_TEMPLATES_PATH}/${id}`), templateData);
+
+    // Update all members that use this template
+    const memberIds = await this.getMembersByTemplateId(id);
+    const updatePromises = memberIds.map((memberId) =>
+      update(ref(db, `${MEMBERS_PATH}/${memberId}`), {
+        salaryType: template.salaryType ?? undefined,
+        salaryAmount: template.salaryAmount ?? undefined,
+        bonusPercentage: template.bonusPercentage ?? 0,
+        updatedAt: new Date().getTime(),
+      })
+    );
+    await Promise.all(updatePromises);
   }
 
   static async deleteTemplate(id: string): Promise<void> {
@@ -145,3 +178,4 @@ export class SalaryService {
     return unsubscribe;
   }
 }
+

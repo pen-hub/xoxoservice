@@ -1,16 +1,16 @@
 import {
-    RefundRequest,
-    RefundStatus
+  RefundRequest,
+  RefundStatus
 } from "@/types/refund";
+import { genCode } from "@/utils/genCode";
 import {
-    get,
-    getDatabase,
-    onValue,
-    push,
-    ref,
-    remove,
-    set,
-    update,
+  get,
+  getDatabase,
+  onValue,
+  ref,
+  remove,
+  set,
+  update,
 } from "firebase/database";
 
 const db = getDatabase();
@@ -65,17 +65,16 @@ export class RefundService {
     refund: Omit<RefundRequest, "id" | "createdAt" | "updatedAt">
   ): Promise<RefundRequest> {
     const now = new Date().getTime();
-    const refundRef = push(ref(db, REFUNDS_PATH));
-    const refundId = refundRef.key!;
+    const refundCode = genCode("REF_");
 
     const refundData: RefundRequest = {
       ...refund,
-      id: refundId,
+      id: refundCode,
       createdAt: now,
       updatedAt: now,
     };
 
-    await set(refundRef, removeUndefined(refundData));
+    await set(ref(db, `${REFUNDS_PATH}/${refundCode}`), removeUndefined(refundData));
     return refundData;
   }
 
@@ -123,12 +122,41 @@ export class RefundService {
     processedBy: string,
     processedByName: string
   ): Promise<void> {
+    // Get refund data before updating
+    const refund = await this.getById(id);
+    if (!refund) {
+      throw new Error("Refund not found");
+    }
+
     await this.update(id, {
       status: RefundStatus.PROCESSED,
       processedBy,
       processedByName,
       processedDate: new Date().getTime(),
     });
+
+    // Tạo phiếu chi khi refund được processed
+    try {
+      // Dynamic import to avoid bundler issues
+      const { FinanceService } = await import("./financeService");
+      const updatedRefund = {
+        ...refund,
+        status: RefundStatus.PROCESSED,
+        processedBy,
+        processedByName,
+        processedDate: new Date().getTime(),
+        updatedAt: new Date().getTime(),
+      };
+      await FinanceService.createRefundTransaction(
+        updatedRefund,
+        id,
+        processedBy,
+        processedByName
+      );
+    } catch (financeError) {
+      console.error("Failed to create refund finance transaction:", financeError);
+      // Don't throw error, just log it
+    }
   }
 
   static async delete(id: string): Promise<void> {
@@ -150,3 +178,5 @@ export class RefundService {
     return unsubscribe;
   }
 }
+
+

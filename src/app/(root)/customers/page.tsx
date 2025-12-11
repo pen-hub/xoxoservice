@@ -5,7 +5,7 @@ import WrapperContent from "@/components/WrapperContent";
 import useFilter from "@/hooks/useFilter";
 import type { FilterField } from "@/types";
 import { CustomerSource, CustomerSourceOptions } from "@/types/enum";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { genCode } from "@/utils/genCode";
 import {
   DeleteOutlined,
   EditOutlined,
@@ -93,7 +93,7 @@ export default function CustomersPage() {
       setEditingCustomer(null);
       form.resetFields();
       form.setFieldsValue({
-        code: generateRandomCode("CUST_"),
+        code: genCode("CUST_"),
         customerSource: CustomerSource.Other,
       });
     }

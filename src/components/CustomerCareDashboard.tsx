@@ -1,15 +1,14 @@
 "use client";
 
+import ButtonCall from "@/components/ButtonCall";
 import { useRealtimeList } from "@/firebase/hooks/useRealtime";
 import { useUser } from "@/firebase/provider";
 import useFilter from "@/hooks/useFilter";
 import { AppointmentService } from "@/services/appointmentService";
-import { FollowUpService } from "@/services/followUpService";
 import { RefundService } from "@/services/refundService";
 import { WarrantyClaimService } from "@/services/warrantyClaimService";
 import { FilterField } from "@/types";
 import { type Appointment } from "@/types/appointment";
-import { FollowUpTypeLabels, type FollowUpSchedule } from "@/types/followUp";
 import { IMembers } from "@/types/members";
 import { FirebaseOrderData, OrderStatus } from "@/types/order";
 import { type RefundRequest } from "@/types/refund";
@@ -35,7 +34,7 @@ import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { ref as dbRef, getDatabase, update } from "firebase/database";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CommonTable, { PropRowDetails } from "./CommonTable";
 import WrapperContent from "./WrapperContent";
 
@@ -72,8 +71,8 @@ interface CareItem {
     caredBy?: string;
     caredByName?: string;
     caredAt?: number;
+    careCount?: number;
     originalOrderCode?: string;
-    [key: string]: unknown;
   };
 }
 
@@ -99,18 +98,6 @@ const CARE_TYPE_CONFIG: Record<CareType, { label: string; color: string }> = {
 const renderStatusTag = (status: CareStatus, label: string, color: string) => (
   <Tag color={color}>{label}</Tag>
 );
-
-/**
- * Maps follow-up status to display label and color
- */
-const getFollowUpStatusInfo = (status: string) => {
-  const statusMap: Record<string, { label: string; color: string }> = {
-    pending: { label: "Chờ chăm sóc", color: "blue" },
-    overdue: { label: "Quá hạn", color: "red" },
-    completed: { label: "Đã hoàn tất", color: "green" },
-  };
-  return statusMap[status] || { label: "Đã huỷ", color: "default" };
-};
 
 /**
  * Renders notes/issues as Tags if array, or as text if string
@@ -183,16 +170,27 @@ const CareDetail: React.FC<PropRowDetails<CareItem>> = ({ data, onClose }) => {
         <Descriptions.Item label="Lưu ý">
           {renderNotes(data.notes)}
         </Descriptions.Item>
-        {data.type === "order" && data.extra?.caredBy && (
+        {(data.type === "order" || data.type === "followup") && (
           <>
-            <Descriptions.Item label="Đã chăm sóc bởi">
-              {data.extra.caredByName || "-"}
+            <Descriptions.Item label="Số lần chăm sóc">
+              <Tag
+                color={(data.extra?.careCount || 0) > 0 ? "green" : "default"}
+              >
+                {data.extra?.careCount || 0}
+              </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Ngày chăm sóc">
-              {data.extra.caredAt
-                ? dayjs(data.extra.caredAt).format("DD/MM/YYYY HH:mm")
-                : "-"}
-            </Descriptions.Item>
+            {data.extra?.caredBy && (
+              <>
+                <Descriptions.Item label="Đã chăm sóc bởi">
+                  {data.extra.caredByName || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ngày chăm sóc lần cuối">
+                  {data.extra.caredAt
+                    ? dayjs(data.extra.caredAt).format("DD/MM/YYYY HH:mm")
+                    : "-"}
+                </Descriptions.Item>
+              </>
+            )}
           </>
         )}
       </Descriptions>
@@ -235,15 +233,11 @@ export default function CustomerCareDashboard() {
   const { data: staffData, isLoading: staffLoading } =
     useRealtimeList<IMembers>("xoxo/members");
 
-  const [followUps, setFollowUps] = useState<FollowUpSchedule[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [warrantyClaims, setWarrantyClaims] = useState<WarrantyClaim[]>([]);
 
   useEffect(() => {
-    const unsubFollow = FollowUpService.onSnapshot((data) => {
-      setFollowUps(data);
-    });
     const unsubAppt = AppointmentService.onSnapshot((data) => {
       setAppointments(data);
     });
@@ -254,7 +248,6 @@ export default function CustomerCareDashboard() {
       setWarrantyClaims(data);
     });
     return () => {
-      unsubFollow?.();
       unsubAppt?.();
       unsubRefund?.();
       unsubWarranty?.();
@@ -274,78 +267,85 @@ export default function CustomerCareDashboard() {
   // ============================================================================
 
   /**
-   * Transforms follow-up schedules into care items
+   * Transforms pending orders into care items
    */
-  const transformFollowUpsToCareItems = (
-    followUps: FollowUpSchedule[]
-  ): CareItem[] => {
-    return followUps.map((followUp) => {
-      const statusInfo = getFollowUpStatusInfo(followUp.status);
-      return {
-        key: `followup-${followUp.id}`,
-        type: "followup",
-        status: followUp.status as CareStatus,
-        statusLabel: statusInfo.label,
-        statusColor: statusInfo.color,
-        customerName: followUp.customerName,
-        customerPhone: followUp.customerPhone,
-        orderCode: followUp.orderCode,
-        title: FollowUpTypeLabels[followUp.followUpType],
-        notes: followUp.notes,
-        createdAt: followUp.createdAt,
-      };
-    });
-  };
+  const transformPendingOrdersToCareItems = useCallback(
+    (orders: FirebaseOrderData[]): CareItem[] => {
+      return orders
+        .filter((order) => order.status === OrderStatus.PENDING)
+        .map((order) => ({
+          key: `order-${order.code}`,
+          type: "followup" as const,
+          status: "pending" as CareStatus,
+          statusLabel: "Chờ chăm sóc",
+          statusColor: "blue",
+          customerName: order.customerName,
+          customerPhone: order.phone,
+          orderCode: order.code,
+          title: "Đơn hàng đang chờ",
+          notes: order.issues || [],
+          createdAt: order.createdAt,
+          dueDate: order.orderDate,
+          extra: {
+            careCount: order.careCount || 0,
+          },
+        }));
+    },
+    []
+  );
 
   /**
    * Transforms completed orders with issues into care items
    */
-  const transformOrdersToCareItems = (
-    orders: FirebaseOrderData[]
-  ): CareItem[] => {
-    return orders.filter(shouldIncludeOrder).map((order) => ({
-      key: `order-${order.code}`,
-      type: "order" as const,
-      status: "completed" as CareStatus,
-      statusLabel: "Hoàn thành",
-      statusColor: "green",
-      customerName: order.customerName,
-      customerPhone: order.phone,
-      orderCode: order.code,
-      title: "Đơn hàng đã hoàn thành",
-      notes: order.issues || [],
-      dueDate: order.updatedAt,
-      extra: {
-        caredBy: order.caredBy,
-        caredByName: order.caredByName,
-        caredAt: order.caredAt,
-      },
-    }));
-  };
+  const transformOrdersToCareItems = useCallback(
+    (orders: FirebaseOrderData[]): CareItem[] => {
+      return orders.filter(shouldIncludeOrder).map((order) => ({
+        key: `order-${order.code}`,
+        type: "order" as const,
+        status: "completed" as CareStatus,
+        statusLabel: "Hoàn thành",
+        statusColor: "green",
+        customerName: order.customerName,
+        customerPhone: order.phone,
+        orderCode: order.code,
+        title: "Đơn hàng đã hoàn thành",
+        notes: order.issues || [],
+        dueDate: order.updatedAt,
+        extra: {
+          caredBy: order.caredBy,
+          caredByName: order.caredByName,
+          caredAt: order.caredAt,
+          careCount: order.careCount || 0,
+        },
+      }));
+    },
+    []
+  );
 
   /**
    * Transforms completed warranty claims with issues into care items
    */
-  const transformWarrantyClaimsToCareItems = (
-    claims: WarrantyClaim[]
-  ): CareItem[] => {
-    return claims.filter(shouldIncludeWarrantyClaim).map((claim) => ({
-      key: `warranty-${claim.code}`,
-      type: "warranty" as const,
-      status: "completed" as CareStatus,
-      statusLabel: "Hoàn thành",
-      statusColor: "green",
-      customerName: claim.customerName,
-      customerPhone: claim.phone,
-      orderCode: claim.code,
-      title: "Phiếu bảo hành đã hoàn thành",
-      notes: claim.issues || [],
-      dueDate: claim.updatedAt,
-      extra: {
-        originalOrderCode: claim.originalOrderCode,
-      },
-    }));
-  };
+  const transformWarrantyClaimsToCareItems = useCallback(
+    (claims: WarrantyClaim[]): CareItem[] => {
+      return claims.filter(shouldIncludeWarrantyClaim).map((claim) => ({
+        key: `warranty-${claim.code}`,
+        type: "warranty" as const,
+        status: "completed" as CareStatus,
+        statusLabel: "Hoàn thành",
+        statusColor: "green",
+        customerName: claim.customerName,
+        customerPhone: claim.phone,
+        orderCode: claim.code,
+        title: "Phiếu bảo hành đã hoàn thành",
+        notes: claim.issues || [],
+        dueDate: claim.updatedAt,
+        extra: {
+          originalOrderCode: claim.originalOrderCode,
+        },
+      }));
+    },
+    []
+  );
 
   // ============================================================================
   // Computed Values
@@ -355,12 +355,20 @@ export default function CustomerCareDashboard() {
    * Aggregates all care items from different sources
    */
   const careItems = useMemo<CareItem[]>(() => {
-    const followUpItems = transformFollowUpsToCareItems(followUps);
+    const pendingOrderItems = transformPendingOrdersToCareItems(
+      ordersData || []
+    );
     const orderItems = transformOrdersToCareItems(ordersData || []);
     const warrantyItems = transformWarrantyClaimsToCareItems(warrantyClaims);
 
-    return [...followUpItems, ...orderItems, ...warrantyItems];
-  }, [followUps, ordersData, warrantyClaims]);
+    return [...pendingOrderItems, ...orderItems, ...warrantyItems];
+  }, [
+    ordersData,
+    warrantyClaims,
+    transformPendingOrdersToCareItems,
+    transformOrdersToCareItems,
+    transformWarrantyClaimsToCareItems,
+  ]);
 
   /**
    * Applies filters to care items with custom logic for type, status, and notes
@@ -446,9 +454,6 @@ export default function CustomerCareDashboard() {
   const stats = useMemo(() => {
     const src = filteredCare;
     return {
-      followupOverdue: src.filter(
-        (i) => i.type === "followup" && i.status === "overdue"
-      ).length,
       followupPending: src.filter(
         (i) => i.type === "followup" && i.status === "pending"
       ).length,
@@ -458,180 +463,211 @@ export default function CustomerCareDashboard() {
       refundPending: src.filter(
         (i) => i.type === "refund" && i.status === "pending"
       ).length,
+      orderCompleted: src.filter(
+        (i) => i.type === "order" && i.status === "completed"
+      ).length,
     };
   }, [filteredCare]);
-
-  const columns: ColumnsType<CareItem> = [
-    {
-      title: "Loại",
-      dataIndex: "type",
-      key: "type",
-      width: 160,
-      render: (type: CareType) => {
-        const config = CARE_TYPE_CONFIG[type];
-        return <Tag color={config.color}>{config.label}</Tag>;
-      },
-    },
-    {
-      title: "Khách hàng",
-      dataIndex: "customerName",
-      key: "customerName",
-      width: 180,
-    },
-    {
-      title: "SĐT",
-      dataIndex: "customerPhone",
-      key: "customerPhone",
-      width: 150,
-      render: (phone?: string) =>
-        phone ? (
-          <Space>
-            <Text>{phone}</Text>
-            <Button
-              type="text"
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={() => {
-                navigator.clipboard.writeText(phone);
-                message.success("Đã sao chép số điện thoại");
-              }}
-            />
-          </Space>
-        ) : (
-          "-"
-        ),
-    },
-    {
-      title: "Mã đơn",
-      dataIndex: "orderCode",
-      key: "orderCode",
-      width: 140,
-      render: (code?: string) => code || "-",
-    },
-    {
-      title: "Trạng thái",
-      dataIndex: "status",
-      key: "status",
-      width: 140,
-      render: (_: CareStatus, record) =>
-        renderStatusTag(record.status, record.statusLabel, record.statusColor),
-    },
-    {
-      title: "Ngày tạo",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      width: 170,
-      render: (val?: number) => (val ? dayjs(val).format("DD/MM/YYYY") : "-"),
-    },
-    {
-      title: "Lưu ý",
-      dataIndex: "notes",
-      key: "notes",
-      width: 220,
-      render: (notes?: string | string[]) => (
-        <div className=" max-h-20 overflow-y-auto">{renderNotes(notes)}</div>
-      ),
-    },
-    {
-      title: "Thao tác",
-      key: "action",
-      width: 200,
-      fixed: "right" as const,
-      render: (_: unknown, record: CareItem) => (
-        <Space size="small">
-          {record.type === "followup" &&
-            (record.status === "pending" || record.status === "overdue") && (
-              <Popconfirm
-                title="Xác nhận hoàn tất follow-up?"
-                onConfirm={() =>
-                  handleCompleteFollowUp(record.key.replace("followup-", ""))
-                }
-              >
-                <Button size="small" type="link">
-                  Hoàn tất
-                </Button>
-              </Popconfirm>
-            )}
-          {record.type === "order" && record.orderCode && (
-            <>
-              {!record.extra?.caredBy ? (
-                <Popconfirm
-                  title="Xác nhận đã chăm sóc đơn hàng này?"
-                  onConfirm={() => handleMarkOrderAsCared(record.orderCode!)}
-                >
-                  <Button size="small" type="primary">
-                    Đã chăm sóc
-                  </Button>
-                </Popconfirm>
-              ) : (
-                <Button size="small" type="link" disabled>
-                  Đã chăm sóc
-                </Button>
-              )}
-            </>
-          )}
-          {record.type === "warranty" && record.orderCode && (
-            <Button
-              size="small"
-              type="link"
-              onClick={() => router.push(`/sale/warranty/${record.orderCode}`)}
-            >
-              Xem phiếu
-            </Button>
-          )}
-          {record.type === "order" && record.orderCode && (
-            <Button
-              size="small"
-              type="link"
-              onClick={() => router.push(`/sale/orders/${record.orderCode}`)}
-            >
-              Xem đơn
-            </Button>
-          )}
-        </Space>
-      ),
-    },
-  ];
 
   // ============================================================================
   // Event Handlers
   // ============================================================================
 
   /**
-   * Handles completing a follow-up task
+   * Handles updating care count for an order (unified handler)
    */
-  const handleCompleteFollowUp = async (followUpId: string) => {
-    try {
-      await FollowUpService.complete(
-        followUpId,
-        user?.uid || "",
-        user?.displayName || user?.email || "Người dùng hiện tại"
-      );
-      message.success("Đã hoàn tất follow-up");
-    } catch (err) {
-      message.error("Không thể hoàn tất follow-up");
-      console.error(err);
-    }
-  };
+  const handleUpdateCareCount = useCallback(
+    async (orderCode: string) => {
+      try {
+        const order = ordersData?.find((o) => o.code === orderCode);
+        if (!order) {
+          message.error("Không tìm thấy đơn hàng");
+          return;
+        }
+
+        const currentCareCount = order.careCount || 0;
+        const newCareCount = currentCareCount + 1;
+        const orderRef = dbRef(getDatabase(), `xoxo/orders/${orderCode}`);
+        await update(orderRef, {
+          careCount: newCareCount,
+          caredBy: user?.uid || "",
+          caredByName:
+            user?.displayName || user?.email || "Người dùng hiện tại",
+          caredAt: new Date().getTime(),
+          updatedAt: new Date().getTime(),
+        });
+        message.success(
+          `Đã cập nhật số lần chăm sóc: ${newCareCount} ${
+            newCareCount === 1 ? "lần" : "lần"
+          }`
+        );
+      } catch (err) {
+        message.error("Không thể cập nhật số lần chăm sóc");
+        console.error("Error updating care count:", err);
+      }
+    },
+    [ordersData, user, message]
+  );
 
   /**
-   * Handles marking an order as cared
+   * Alias for handleUpdateCareCount (for backward compatibility)
    */
-  const handleMarkOrderAsCared = async (orderCode: string) => {
-    try {
-      const orderRef = dbRef(getDatabase(), `xoxo/orders/${orderCode}`);
-      await update(orderRef, {
-        caredBy: user?.uid || "",
-        caredByName: user?.displayName || user?.email || "Người dùng hiện tại",
-        caredAt: new Date().getTime(),
-        updatedAt: new Date().getTime(),
-      });
-      message.success("Đã cập nhật trạng thái chăm sóc");
-    } catch (err) {
-      message.error("Không thể cập nhật trạng thái chăm sóc");
-      console.error(err);
-    }
-  };
+  const handleMarkOrderAsCared = handleUpdateCareCount;
+
+  const columns: ColumnsType<CareItem> = useMemo(
+    () => [
+      {
+        title: "Loại",
+        dataIndex: "type",
+        key: "type",
+        width: 160,
+        render: (type: CareType) => {
+          const config = CARE_TYPE_CONFIG[type];
+          return <Tag color={config.color}>{config.label}</Tag>;
+        },
+      },
+      {
+        title: "Khách hàng",
+        dataIndex: "customerName",
+        key: "customerName",
+        width: 180,
+      },
+      {
+        title: "SĐT",
+        dataIndex: "customerPhone",
+        key: "customerPhone",
+        width: 150,
+        render: (phone?: string) =>
+          phone ? (
+            <Space>
+              <Text>{phone}</Text>
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => {
+                  navigator.clipboard.writeText(phone);
+                  message.success("Đã sao chép số điện thoại");
+                }}
+              />
+            </Space>
+          ) : (
+            "-"
+          ),
+      },
+      {
+        title: "Mã đơn",
+        dataIndex: "orderCode",
+        key: "orderCode",
+        width: 140,
+        render: (code?: string) => code || "-",
+      },
+      {
+        title: "Trạng thái",
+        dataIndex: "status",
+        key: "status",
+        width: 140,
+        render: (_: CareStatus, record) =>
+          renderStatusTag(
+            record.status,
+            record.statusLabel,
+            record.statusColor
+          ),
+      },
+      {
+        title: "Ngày tạo",
+        dataIndex: "createdAt",
+        key: "createdAt",
+        width: 170,
+        render: (val?: number) => (val ? dayjs(val).format("DD/MM/YYYY") : "-"),
+      },
+      {
+        title: "Lưu ý",
+        dataIndex: "notes",
+        key: "notes",
+        width: 220,
+        render: (notes?: string | string[]) => (
+          <div className=" max-h-20 overflow-y-auto">{renderNotes(notes)}</div>
+        ),
+      },
+      {
+        title: "Số lần chăm sóc",
+        dataIndex: "extra",
+        key: "careCount",
+        width: 140,
+        render: (extra?: CareItem["extra"]) => {
+          const count = extra?.careCount || 0;
+          return (
+            <Tag color={count > 0 ? "green" : "default"}>
+              {count > 0 ? `${count} lần` : "Chưa có"}
+            </Tag>
+          );
+        },
+      },
+      {
+        title: "Thao tác",
+        key: "action",
+        width: 120,
+        fixed: "right" as const,
+        render: (_: unknown, record: CareItem) => (
+          <Space size="small" vertical>
+            {record.type === "followup" && record.status === "pending" && (
+              <Popconfirm
+                title="Xác nhận đã chăm sóc đơn hàng này?"
+                onConfirm={() => handleUpdateCareCount(record.orderCode!)}
+              >
+                <Button size="small" type="primary">
+                  Chăm sóc
+                </Button>
+              </Popconfirm>
+            )}
+            {record.customerPhone && (
+              <ButtonCall phone={record.customerPhone} size="small" />
+            )}
+            {record.type === "order" && record.orderCode && (
+              <>
+                {!record.extra?.caredBy ? (
+                  <Popconfirm
+                    title="Xác nhận đã chăm sóc đơn hàng này?"
+                    onConfirm={() => handleMarkOrderAsCared(record.orderCode!)}
+                  >
+                    <Button size="small" type="primary">
+                      Đã chăm sóc
+                    </Button>
+                  </Popconfirm>
+                ) : (
+                  <Button size="small" type="link" disabled>
+                    Đã chăm sóc
+                  </Button>
+                )}
+              </>
+            )}
+            {record.type === "warranty" && record.orderCode && (
+              <Button
+                size="small"
+                type="link"
+                onClick={() =>
+                  router.push(`/sale/warranty/${record.orderCode}`)
+                }
+              >
+                Xem phiếu
+              </Button>
+            )}
+            {record.type === "order" && record.orderCode && (
+              <Button
+                size="small"
+                type="link"
+                onClick={() => router.push(`/sale/orders/${record.orderCode}`)}
+              >
+                Xem đơn
+              </Button>
+            )}
+          </Space>
+        ),
+      },
+    ],
+    [handleUpdateCareCount, router, message]
+  );
 
   // ============================================================================
   // Filter Configuration
@@ -707,18 +743,18 @@ export default function CustomerCareDashboard() {
         <div className="grid grid-cols-4 gap-4">
           <Card>
             <Statistic
-              title="Chăm sóc quá hạn"
-              value={stats.followupOverdue}
+              title="Đơn chờ chăm sóc"
+              value={stats.followupPending}
               prefix={<ClockCircleOutlined />}
-              styles={{ content: { color: "#cf1322" } }}
+              styles={{ content: { color: "#faad14" } }}
             />
           </Card>
           <Card>
             <Statistic
-              title="Chăm sóc chờ"
-              value={stats.followupPending}
+              title="Đơn đã hoàn thành"
+              value={stats.orderCompleted}
               prefix={<ClockCircleOutlined />}
-              styles={{ content: { color: "#faad14" } }}
+              styles={{ content: { color: "#52c41a" } }}
             />
           </Card>
           <Card>
@@ -746,6 +782,7 @@ export default function CustomerCareDashboard() {
           DrawerDetails={CareDetail}
           pagination={{ ...pagination, onChange: handlePageChange }}
           paging={true}
+          rowKey="key"
         />
       </Space>
     </WrapperContent>

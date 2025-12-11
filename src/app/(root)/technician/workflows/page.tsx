@@ -6,7 +6,7 @@ import useFilter from "@/hooks/useFilter";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { DepartmentService, IDepartment } from "@/services/departmentService";
 import { IWorkflow, WorkflowCRUDService } from "@/services/workflowCRUDService";
-import { generateRandomCode } from "@/utils/generateRandomCode";
+import { genCode } from "@/utils/genCode";
 import {
   ClearOutlined,
   DeleteOutlined,
@@ -111,7 +111,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({
     } else if (visible) {
       form.resetFields();
       form.setFieldsValue({
-        code: generateRandomCode("WF_"),
+        code: genCode("WF_"),
       });
     }
   }, [workflow, visible, form]);

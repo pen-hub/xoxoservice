@@ -1,3 +1,4 @@
+import { ROLES } from '@/types/enum';
 import { IMembers } from '@/types/members';
 import { get, getDatabase, onValue, ref, remove, set, update } from 'firebase/database';
 
@@ -33,6 +34,7 @@ export class MemberService {
         email: member.email,
         password: member.password,
         displayName: member.name,
+        role: member.role,
       }),
     });
 
@@ -63,13 +65,16 @@ export class MemberService {
     await update(ref(db, `${MEMBERS_PATH}/${id}`), memberData);
   }
 
-  static async updatePassword(id: string, newPassword: string): Promise<void> {
+  static async updatePassword(id: string, newPassword: string, role: ROLES): Promise<void> {
     const response = await fetch(`/api/members/${id}/update-password`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ password: newPassword }),
+      body: JSON.stringify({ password: newPassword ,
+        role: role,
+
+      }),
     });
 
     if (!response.ok) {
@@ -88,7 +93,7 @@ export class MemberService {
 
     // Update password if provided
     if (newPassword && newPassword.trim() !== '') {
-      await this.updatePassword(id, newPassword);
+      await this.updatePassword(id, newPassword, member.role as ROLES);
     }
   }
 

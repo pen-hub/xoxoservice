@@ -1,5 +1,5 @@
 import {
-  BookOutlined,
+  AppstoreOutlined,
   CalculatorOutlined,
   CalendarOutlined,
   CommentOutlined,
@@ -16,7 +16,6 @@ import {
   ShoppingCartOutlined,
   TeamOutlined,
   ToolOutlined,
-  UserAddOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 
@@ -36,12 +35,12 @@ export const allMenuItems: Array<{
     disable?: boolean;
   }>;
 }> = [
-  // {
-  //   title: "Tổng quan",
-  //   href: "/center",
-  //   Icon: AppstoreOutlined,
-  //   permission: null,
-  // },
+  {
+    title: "Trung tâm",
+    href: "/center",
+    Icon: AppstoreOutlined,
+    permission: null,
+  },
   {
     title: "Thống kê",
     href: "/dashboard",
@@ -122,31 +121,36 @@ export const allMenuItems: Array<{
         href: "/inventory",
       },
       {
+        icon: AppstoreOutlined,
+        title: "Danh mục",
+        href: "/inventory/categories",
+      },
+      {
         icon: DatabaseOutlined,
         title: "Lịch sử",
         href: "/inventory/history",
       },
     ],
   },
-  {
-    title: "Tài chính",
-    prefix: "Quản lý",
-    Icon: DollarOutlined,
-    children: [
-      {
-        icon: MoneyCollectOutlined,
-        title: "Thu Chi",
-        href: "/finance",
-      },
-      {
-        icon: CalculatorOutlined,
-        disable: true,
+  // {
+  //   title: "Tài chính",
+  //   prefix: "Quản lý",
+  //   Icon: DollarOutlined,
+  //   children: [
+  //     {
+  //       icon: MoneyCollectOutlined,
+  //       title: "Thu Chi",
+  //       href: "/finance",
+  //     },
+  //     {
+  //       icon: CalculatorOutlined,
+  //       disable: true,
 
-        title: "Lương & Hoa hồng",
-        href: "/_old/payroll",
-      },
-    ],
-  },
+  //       title: "Lương & Hoa hồng",
+  //       href: "/_old/payroll",
+  //     },
+  //   ],
+  // },
   {
     title: "Nhân sự",
     prefix: "Quản lý",
@@ -157,11 +161,11 @@ export const allMenuItems: Array<{
         title: "Nhân viên",
         href: "/hr/members",
       },
-      // {
-      //   icon: UserAddOutlined,
-      //   title: "Tuyển dụng",
-      //   href: "/hr/recruitment",
-      // },
+      {
+        icon: DollarOutlined,
+        title: "Mẫu lương",
+        href: "/hr/salary-templates",
+      },
       // {
       //   icon: BookOutlined,
       //   title: "Đào tạo",

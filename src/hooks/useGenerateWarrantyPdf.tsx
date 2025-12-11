@@ -1,120 +1,123 @@
-import { pdf } from "@react-pdf/renderer"
-import { message } from "antd"
-import { saveAs } from "file-saver"
-import { useCallback, useState } from "react"
-import { useTranslation } from "react-i18next"
-import WarrantyInvoicePDF, { WarrantyInvoicePDFProps } from "~/components/WarrantyInvoicePDF"
-import { useAppSelector } from "~/stores/hook"
+import WarrantyInvoicePDF from "@/components/WarrantyInvoicePDF";
+import { WarrantyClaim } from "@/types/warrantyClaim";
+import { pdf } from "@react-pdf/renderer";
+import { App } from "antd";
+import { useCallback, useState } from "react";
+
+/**
+ * Helper function để download file từ blob
+ */
+const downloadFile = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
 
 /**
  * Props interface cho useGenerateWarrantyPdf hook
- * Tái sử dụng logic từ useGeneratePdf nhưng dành riêng cho Warranty Invoice
- * 
- * @template T - Kiểu dữ liệu của các dòng trong bảng sản phẩm bảo hành
  */
-type IUseGenerateWarrantyPdfProps<T> = Omit<WarrantyInvoicePDFProps<T>, "financialCalculations" | "dataTable"> &
-  Partial<Pick<WarrantyInvoicePDFProps<T>, "financialCalculations" | "dataTable">>
+interface UseGenerateWarrantyPdfProps {
+  warrantyClaim: WarrantyClaim;
+  consultantInfo?: {
+    code?: string;
+    phone?: string;
+  };
+  warrantyPeriod?: number; // Thời gian bảo hành (tháng)
+  warrantyStartDate?: number; // Timestamp
+  warrantyEndDate?: number; // Timestamp
+}
 
 /**
  * Hook useGenerateWarrantyPdf
- * Hook để generate PDF cho hóa đơn bảo hành
- * 
- * Tái sử dụng logic từ useGeneratePdf nhưng sử dụng WarrantyInvoicePDF component
- * 
- * @template T - Kiểu dữ liệu của các dòng trong bảng sản phẩm bảo hành
- * 
+ * Hook để generate và download PDF cho hóa đơn bảo hành
+ *
  * @param props - Props của hook bao gồm:
- *   - heads: Cấu hình cột cho bảng
- *   - invoiceData: Thông tin chi tiết hóa đơn bảo hành
- *   - dataTable: Dữ liệu bảng sản phẩm/dịch vụ bảo hành (optional, có thể lấy từ store)
- *   - financialCalculations: Các tính toán tài chính (optional, có thể lấy từ store)
- *   - warrantyPeriod: Thời gian bảo hành (tháng)
- *   - warrantyStartDate: Ngày bắt đầu bảo hành
- *   - warrantyEndDate: Ngày kết thúc bảo hành
- *   - originalOrderCode: Mã đơn hàng gốc
- * 
+ *   - warrantyClaim: Dữ liệu phiếu bảo hành (WarrantyClaim)
+ *   - consultantInfo: Thông tin nhân viên tư vấn (optional)
+ *   - warrantyPeriod: Thời gian bảo hành (tháng, optional)
+ *   - warrantyStartDate: Ngày bắt đầu bảo hành (timestamp, optional)
+ *   - warrantyEndDate: Ngày kết thúc bảo hành (timestamp, optional)
+ *
  * @returns Object chứa:
  *   - isLoading: Trạng thái đang tải/generate PDF
  *   - generatePDF: Function để generate và download PDF
  */
-function useGenerateWarrantyPdf<T extends Object>({
-  heads,
-  invoiceData,
-  dataTable,
-  financialCalculations,
-  warrantyPeriod,
+function useGenerateWarrantyPdf({
+  warrantyClaim,
+  consultantInfo,
+  warrantyPeriod = 12,
   warrantyStartDate,
   warrantyEndDate,
-  originalOrderCode
-}: IUseGenerateWarrantyPdfProps<T>) {
-  const { t } = useTranslation()
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  
-  // Lấy dữ liệu từ Redux store nếu không được truyền vào
-  const financialCalculationsStore = useAppSelector((state) => state.previewInvoiceClient.financialCalculations)
-  const pickedItems = useAppSelector((state) => state.previewInvoiceClient.pickedItems)
-  
+}: UseGenerateWarrantyPdfProps) {
+  const { message } = App.useApp();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
   /**
    * Function để generate và download PDF hóa đơn bảo hành
-   * 
-   * @param option - Tùy chọn bổ sung (ví dụ: số hóa đơn tùy chỉnh)
+   *
+   * @param fileName - Tên file tùy chỉnh (optional, mặc định: warranty-{claimCode}.pdf)
    * @returns Promise<void>
    */
   const generatePDF = useCallback(
-    async (option?: string): Promise<void> => {
-      setIsLoading(true)
-      
+    async (fileName?: string): Promise<void> => {
+      setIsLoading(true);
+
       // Kiểm tra dữ liệu trước khi generate
-      if (!dataTable && pickedItems.length === 0) {
-        message.error(t("alert.noData"))
-        setIsLoading(false)
-        return
+      if (!warrantyClaim) {
+        message.error("Không có dữ liệu phiếu bảo hành!");
+        setIsLoading(false);
+        return;
       }
-      
+
+      if (
+        !warrantyClaim.products ||
+        Object.keys(warrantyClaim.products).length === 0
+      ) {
+        message.error("Phiếu bảo hành chưa có sản phẩm!");
+        setIsLoading(false);
+        return;
+      }
+
       try {
         // Generate PDF blob từ WarrantyInvoicePDF component
         const blob = await pdf(
           <WarrantyInvoicePDF
-            option={option}
-            dataTable={dataTable || (pickedItems as any)}
-            heads={heads}
-            financialCalculations={financialCalculations || financialCalculationsStore}
-            invoiceData={invoiceData}
+            warrantyClaim={warrantyClaim}
+            consultantInfo={consultantInfo}
             warrantyPeriod={warrantyPeriod}
             warrantyStartDate={warrantyStartDate}
             warrantyEndDate={warrantyEndDate}
-            originalOrderCode={originalOrderCode}
           />
-        ).toBlob()
-        
-        // Download file với tên file theo format: warranty-{invoiceNumber}.pdf
-        const fileName = `warranty-${invoiceData.invoiceNumber}.pdf`
-        saveAs(blob, fileName)
-        
-        message.success(t("alert.pdfGenerated") || "Đã tạo PDF thành công")
+        ).toBlob();
+
+        // Download file với tên file theo format: warranty-{claimCode}.pdf
+        const defaultFileName = `xoxo-warranty-${warrantyClaim.code}.pdf`;
+        downloadFile(blob, fileName || defaultFileName);
+
+        message.success("Đã tạo PDF thành công!");
       } catch (error) {
-        console.error("Error generating warranty PDF:", error)
-        message.error(t("alert.pdfError") || "Có lỗi xảy ra khi tạo PDF!")
+        console.error("Error generating warranty PDF:", error);
+        message.error("Có lỗi xảy ra khi tạo PDF!");
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     },
     [
-      pickedItems, 
-      heads, 
-      financialCalculations, 
-      invoiceData, 
-      financialCalculationsStore, 
+      warrantyClaim,
+      consultantInfo,
       warrantyPeriod,
       warrantyStartDate,
       warrantyEndDate,
-      originalOrderCode,
-      t
+      message,
     ]
-  )
-  
-  return { isLoading, generatePDF }
+  );
+
+  return { isLoading, generatePDF };
 }
 
-export default useGenerateWarrantyPdf
-
+export default useGenerateWarrantyPdf;

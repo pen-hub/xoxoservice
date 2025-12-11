@@ -1,4 +1,5 @@
 import { env } from '@/env';
+import { ROLES } from '@/types/enum';
 import * as admin from 'firebase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -29,8 +30,14 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { password } = await request.json();
+    const { password, role } = await request.json();
 
+    if (!admin) {
+      return NextResponse.json(
+        { error: 'Failed to initialize Firebase Admin' },
+        { status: 500 }
+      );
+    }
     if (!password) {
       return NextResponse.json(
         { error: 'Password is required' },
@@ -38,21 +45,68 @@ export async function PATCH(
       );
     }
 
+    // Verify user exists before updating
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUser(id);
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+      throw error;
+    }
+
+    const validRoles = Object.values(ROLES);
+    if (role && !validRoles.includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role.' },
+        { status: 400 }
+      );
+    }
+
+    // Set custom claims if role is provided
+    if (role) {
+      try {
+        await admin.auth().setCustomUserClaims(id, {
+          role: role,
+        });
+        console.log(`Successfully set custom claims for user ${id} with role ${role}`);
+      } catch (error: any) {
+        console.error('Error setting custom user claims:', error);
+        return NextResponse.json(
+          { error: 'Failed to set custom user claims', details: error.message, code: error.code },
+          { status: 500 }
+        );
+      }
+    }
+
     // Update password using Firebase Admin SDK
-    await admin.auth().updateUser(id, {
-      password: password,
-    });
+    try {
+      await admin.auth().updateUser(id, {
+        password: password,
+      });
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      return NextResponse.json(
+        { error: 'Failed to update password', details: error.message, code: error.code },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Password updated successfully'
+      message: 'Password updated successfully',
+      ...(role && { roleUpdated: true })
     });
 
   } catch (error: any) {
     console.error('Error updating password:', error);
 
     return NextResponse.json(
-      { error: 'Failed to update password', details: error.message },
+      { error: 'Failed to update password', details: error.message, code: error.code },
       { status: 500 }
     );
   }

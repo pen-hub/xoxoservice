@@ -17,15 +17,15 @@ export interface SalaryConfig {
 
 export interface SalaryTemplate {
   id: string;
-  name: string;
-  salaryType: SalaryType;
-  salaryAmount: number;
-  enableRevenueBonus: boolean;
-  bonusPercentage?: number;
-  description?: string;
+  name: string; // Tên mẫu lương
+  salaryType: SalaryType; // Loại lương
+  salaryAmount: number; // Mức lương
+  bonusPercentage: number; // Phần trăm triết khấu (mặc định 0)
   createdAt?: number;
   updatedAt?: number;
 }
+
+// Export enum for use in other files
 
 export interface FirebaseSalaryConfigs {
   [memberId: string]: SalaryConfig;
@@ -34,3 +34,4 @@ export interface FirebaseSalaryConfigs {
 export interface FirebaseSalaryTemplates {
   [templateId: string]: SalaryTemplate;
 }
+

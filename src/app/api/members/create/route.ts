@@ -1,34 +1,32 @@
-import * as admin from 'firebase-admin';
+import { initFirebaseAdmin } from '@/firebase/admin';
+import { ROLES } from '@/types/enum';
+
 import { NextRequest, NextResponse } from 'next/server';
 
-// Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-  const serviceAccount = {
-    type: "service_account",
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
-  };
-
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as any),
-    databaseURL: process.env.FIREBASE_DATABASE_URL,
-  });
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, displayName } = await request.json();
+    const { email, password, displayName, role } = await request.json();
 
+    const admin = await initFirebaseAdmin();
+    if (!admin) {
+      return NextResponse.json(
+        { error: 'Failed to initialize Firebase Admin' },
+        { status: 500 }
+      );
+    }
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate role if provided
+    const validRoles = Object.values(ROLES);
+    if (role && !validRoles.includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role.' },
         { status: 400 }
       );
     }
@@ -42,12 +40,20 @@ export async function POST(request: NextRequest) {
       disabled: false,
     });
 
+    // Set custom claims with role if provided
+    if (role) {
+      await admin.auth().setCustomUserClaims(userRecord.uid, {
+        role: role,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       user: {
         uid: userRecord.uid,
         email: userRecord.email,
         displayName: userRecord.displayName,
+        role: role || null,
       }
     });
 

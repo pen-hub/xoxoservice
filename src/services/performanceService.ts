@@ -1,17 +1,17 @@
 import {
-    ErrorSeverity,
-    ErrorType,
-    TechnicalError
+  ErrorSeverity,
+  ErrorType,
+  TechnicalError
 } from "@/types/performance";
+import { genCode } from "@/utils/genCode";
 import {
-    get,
-    getDatabase,
-    onValue,
-    push,
-    ref,
-    remove,
-    set,
-    update,
+  get,
+  getDatabase,
+  onValue,
+  ref,
+  remove,
+  set,
+  update,
 } from "firebase/database";
 
 const db = getDatabase();
@@ -84,17 +84,16 @@ export class PerformanceService {
     error: Omit<TechnicalError, "id" | "createdAt" | "updatedAt">
   ): Promise<TechnicalError> {
     const now = new Date().getTime();
-    const errorRef = push(ref(db, TECHNICAL_ERRORS_PATH));
-    const errorId = errorRef.key!;
+    const errorCode = genCode("ERR_");
 
     const errorData: TechnicalError = {
       ...error,
-      id: errorId,
+      id: errorCode,
       createdAt: now,
       updatedAt: now,
     };
 
-    await set(errorRef, removeUndefined(errorData));
+    await set(ref(db, `${TECHNICAL_ERRORS_PATH}/${errorCode}`), removeUndefined(errorData));
     return errorData;
   }
 
@@ -203,3 +202,5 @@ export class PerformanceService {
     };
   }
 }
+
+

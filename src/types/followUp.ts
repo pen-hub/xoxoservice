@@ -37,3 +37,5 @@ export const FollowUpTypeOptions = [
   { label: "Sau 6 tháng", value: FollowUpType.SIX_MONTHS },
   { label: "Sau 12 tháng", value: FollowUpType.TWELVE_MONTHS },
 ];
+
+

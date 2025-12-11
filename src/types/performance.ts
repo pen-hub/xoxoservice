@@ -66,3 +66,5 @@ export const ErrorTypeOptions = [
   { label: "Lỗi quy trình", value: ErrorType.PROCESS },
   { label: "Lỗi giao tiếp", value: ErrorType.COMMUNICATION },
 ];
+
+
