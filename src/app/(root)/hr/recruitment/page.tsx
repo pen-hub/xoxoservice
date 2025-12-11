@@ -502,6 +502,7 @@ export default function RecruitmentPage() {
         },
         buttonEnds: [
           {
+            can: true ,
             name: "Thêm ứng viên",
             icon: <UserAddOutlined />,
             type: "primary",

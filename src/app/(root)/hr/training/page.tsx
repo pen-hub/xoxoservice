@@ -440,6 +440,7 @@ export default function TrainingPage() {
         },
         buttonEnds: [
           {
+            can: true,
             name: "Tạo khóa học",
             icon: <BookOutlined />,
             type: "primary",

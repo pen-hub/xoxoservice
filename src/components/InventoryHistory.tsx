@@ -391,6 +391,7 @@ export default function InventoryHistory() {
   return (
     <WrapperContent
       header={{
+        buttonBackTo: "/inventory",
         searchInput: {
           placeholder: "Tìm kiếm giao dịch...",
           filterKeys: ["materialName", "supplier", "reason", "note"],
@@ -402,11 +403,7 @@ export default function InventoryHistory() {
           onReset: reset,
         },
         buttonEnds: [
-          {
-            name: "Quay lại",
-            icon: <ArrowLeftOutlined />,
-            onClick: () => router.push("/inventory"),
-          },
+
           {
             name: "Export Excel",
             icon: <FileExcelOutlined />,

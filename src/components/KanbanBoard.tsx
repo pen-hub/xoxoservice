@@ -433,6 +433,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       header={{
         buttonEnds: [
           {
+            can: true,
             name: "Tạo đơn hàng",
             icon: <PlusOutlined />,
             type: "primary",

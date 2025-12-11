@@ -22,11 +22,11 @@ export default function AuthPage() {
   }, [user, isUserLoading, router]);
 
   if (isUserLoading) {
-    return <LoaderApp />;
+    return <LoaderApp  full/>;
   }
 
   if (user) {
-    return <LoaderApp />;
+    return <LoaderApp  full/>;
   }
 
   const renderView = () => {

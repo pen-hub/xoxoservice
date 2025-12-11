@@ -337,6 +337,7 @@ export default function CustomersPage() {
         },
         buttonEnds: [
           {
+            can: true,
             name: "Thêm khách hàng",
             icon: <PlusOutlined />,
             type: "primary",

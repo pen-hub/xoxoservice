@@ -859,6 +859,7 @@ export default function LeadManagementCRM() {
         ),
         buttonEnds: [
           {
+            can: true,
             name: "Thêm Lead",
             icon: <PlusOutlined />,
             type: "primary",

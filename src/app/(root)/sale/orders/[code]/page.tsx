@@ -576,6 +576,7 @@ export default function OrderDetailPage() {
         buttonBackTo: "/sale/orders",
         buttonEnds: [
           {
+
             name: "Xuất PDF",
             icon: <DownloadOutlined />,
             type: "default" as const,

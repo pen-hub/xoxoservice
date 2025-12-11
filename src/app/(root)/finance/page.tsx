@@ -383,11 +383,13 @@ export default function FinancePage() {
         },
         buttonEnds: [
           {
+            can: true,
             name: "Xuất Excel",
             icon: <FileExcelOutlined />,
             onClick: () => console.log("Export"),
           },
           {
+            can: true,
             name: "Thêm giao dịch",
             icon: <PlusOutlined />,
             type: "primary",

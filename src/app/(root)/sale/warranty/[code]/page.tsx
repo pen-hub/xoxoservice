@@ -293,6 +293,7 @@ export default function WarrantyClaimDetailPage() {
         buttonBackTo: "/sale/warranty",
         buttonEnds: [
           {
+            can: true,
             name: "Xuất PDF",
             icon: <DownloadOutlined />,
             type: "default" as const,
@@ -308,6 +309,7 @@ export default function WarrantyClaimDetailPage() {
           ...(claim?.phone
             ? [
                 {
+                  can: true,
                   name: "Gọi điện",
                   icon: <PhoneOutlined />,
                   type: "default" as const,
@@ -315,7 +317,7 @@ export default function WarrantyClaimDetailPage() {
                 },
               ]
             : []),
-          ...(claim?.status !== WarrantyClaimStatus.COMPLETED 
+          ...(claim?.status !== WarrantyClaimStatus.COMPLETED
             ? [
                 {
                   name: "Cập nhật trạng thái",

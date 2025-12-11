@@ -266,17 +266,13 @@ export default function CategoryManagement() {
     <>
       <WrapperContent
         header={{
+          buttonBackTo: "/",
           searchInput: {
             placeholder: "Tìm kiếm danh mục...",
             filterKeys: ["name", "description"],
           },
           buttonEnds: [
-            {
-              name: "Quay lại",
-              icon: <PlusOutlined />,
-              can: true,
-              onClick: () => router.back(),
-            },
+
             {
               name: "Thêm danh mục",
               icon: <PlusOutlined />,

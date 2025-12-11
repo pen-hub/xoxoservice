@@ -32,6 +32,7 @@ const CreateOrderModal: React.FC = () => {
         buttonBackTo: `/sale/orders`,
         buttonEnds: [
           {
+            can: true,
             type: "dashed",
             name: "Đặt lại",
             icon: <ReloadOutlined />,

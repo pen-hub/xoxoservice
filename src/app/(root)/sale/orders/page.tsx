@@ -281,6 +281,7 @@ export default function OrderListPage() {
         },
         buttonEnds: [
           {
+            can: true,
             name: "Tạo đơn hàng",
             icon: <PlusOutlined />,
             type: "primary",
