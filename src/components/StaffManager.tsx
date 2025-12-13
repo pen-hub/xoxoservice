@@ -184,15 +184,10 @@ export default function StaffManager() {
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="bg-background rounded-lg shadow-sm p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">
-            Quản lý nhân viên
-          </h2>
-          <p className="text-gray-500 mt-1">
-            Danh sách tất cả nhân viên trong hệ thống
-          </p>
+          <h2 className="text-2xl font-bold text-primary">Quản lý nhân viên</h2>
         </div>
         <Button
           type="primary"

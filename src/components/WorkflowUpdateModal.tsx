@@ -389,13 +389,14 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                             onClick={() => addWorkflow(productId)}
                             className="mb-4"
                             size="small"
+                            style={{ marginBottom: 10 }}
                           >
                             Thêm công đoạn
                           </Button>
 
                           {/* Workflows Table */}
                           {Object.keys(product.workflows || {}).length > 0 ? (
-                            <div className="overflow-hidden rounded-lg border border-gray-200 mb-4">
+                            <div className="overflow-hidden mb-4">
                               <Table
                                 dataSource={Object.entries(
                                   product.workflows || {}

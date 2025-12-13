@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  CalendarOutlined,
-  ClockCircleOutlined,
-  DollarOutlined,
-  EditOutlined,
-  PhoneOutlined,
-  TagOutlined,
-  UserOutlined,
+    CalendarOutlined,
+    ClockCircleOutlined,
+    DollarOutlined,
+    EditOutlined,
+    PhoneOutlined,
+    TagOutlined,
+    UserOutlined,
 } from "@ant-design/icons";
 import { Draggable } from "@hello-pangea/dnd";
 import { Card, Progress, Tag, Tooltip, Typography } from "antd";
@@ -24,229 +24,327 @@ const { Text } = Typography;
 
 // Types
 interface KanbanCardProps {
-  members: Record<string, { name: string; role: string }>;
-  order: FirebaseOrderData & { id: string };
-  index: number;
-  onEdit: (order: FirebaseOrderData & { id: string }) => void;
-  onContact: (phone: string) => void;
+    members: Record<string, { name: string; role: string }>;
+    order: FirebaseOrderData & { id: string };
+    index: number;
+    onEdit: (order: FirebaseOrderData & { id: string }) => void;
+    onContact: (phone: string) => void;
 }
 
 interface CardMetrics {
-  progressPercent: number;
-  completedWorkflows: number;
-  totalWorkflows: number;
-  daysRemaining: number;
-  urgencyLevel: "urgent" | "warning" | "normal";
+    progressPercent: number;
+    completedWorkflows: number;
+    totalWorkflows: number;
+    daysRemaining: number;
+    urgencyLevel: "urgent" | "warning" | "normal";
 }
 
 export const KanbanCard: React.FC<KanbanCardProps> = ({
-  members,
-  order,
-  index,
-  onEdit,
-  onContact,
+    members,
+    order,
+    index,
+    onEdit,
+    onContact,
 }) => {
-  // Memoized calculations for performance
-  const metrics: CardMetrics = useMemo(() => {
-    const allWorkflows = order?.products
-      ? Object.values(order.products).flatMap((product) =>
-          product?.workflows ? Object.values(product.workflows) : []
-        )
-      : [];
+    // Memoized calculations for performance
+    const metrics: CardMetrics = useMemo(() => {
+        const allWorkflows = order?.products
+            ? Object.values(order.products).flatMap((product) =>
+                  product?.workflows ? Object.values(product.workflows) : [],
+              )
+            : [];
 
-    const completed = allWorkflows.filter((workflow) => workflow?.isDone);
-    const progressPercent =
-      allWorkflows.length > 0
-        ? Math.round((completed.length / allWorkflows.length) * 100)
-        : 0;
+        const completed = allWorkflows.filter((workflow) => workflow?.isDone);
+        const progressPercent =
+            allWorkflows.length > 0
+                ? Math.round((completed.length / allWorkflows.length) * 100)
+                : 0;
 
-    const daysRemaining = order?.deliveryDate
-      ? Math.ceil(
-          (order.deliveryDate - new Date().getTime()) / (1000 * 60 * 60 * 24)
-        )
-      : 0;
+        const daysRemaining = order?.deliveryDate
+            ? Math.ceil(
+                  (order.deliveryDate - new Date().getTime()) /
+                      (1000 * 60 * 60 * 24),
+              )
+            : 0;
 
-    const urgencyLevel: CardMetrics["urgencyLevel"] =
-      daysRemaining <= 1 ? "urgent" : daysRemaining <= 2 ? "warning" : "normal";
+        const urgencyLevel: CardMetrics["urgencyLevel"] =
+            daysRemaining <= 1
+                ? "urgent"
+                : daysRemaining <= 2
+                  ? "warning"
+                  : "normal";
 
-    return {
-      progressPercent,
-      completedWorkflows: completed.length,
-      totalWorkflows: allWorkflows.length,
-      daysRemaining,
-      urgencyLevel,
-    };
-  }, [order]);
+        return {
+            progressPercent,
+            completedWorkflows: completed.length,
+            totalWorkflows: allWorkflows.length,
+            daysRemaining,
+            urgencyLevel,
+        };
+    }, [order]);
 
-  const cardActions: MenuProps["items"] = [
-    {
-      key: "edit",
-      label: "Cập nhật công đoạn",
-      icon: <EditOutlined />,
-      onClick: () => onEdit(order),
-    },
-    {
-      key: "contact",
-      label: "Liên hệ khách hàng",
-      icon: <PhoneOutlined />,
-      onClick: () => onContact(order.phone || ""),
-    },
-  ];
+    const cardActions: MenuProps["items"] = [
+        {
+            key: "edit",
+            label: "Cập nhật công đoạn",
+            icon: <EditOutlined />,
+            onClick: () => onEdit(order),
+        },
+        {
+            key: "contact",
+            label: "Liên hệ khách hàng",
+            icon: <PhoneOutlined />,
+            onClick: () => onContact(order.phone || ""),
+        },
+    ];
 
-  const columnStyle = columnsKanban.find((col) => col.key === order.status);
-  return (
-    <Draggable draggableId={order.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className={`mb-2 transition-transform duration-200 ${
-            snapshot.isDragging ? "rotate-1 scale-105 shadow-lg" : ""
-          }`}
-        >
-          <Card
-            onClick={() => onEdit(order)}
-            size="small"
-            className="shadow-sm hover:shadow-md transition-all cursor-pointer w-full"
-            style={{
-              borderLeft: `4px solid ${columnStyle?.color || "#d9d9d9"}`,
-            }}
-            styles={{ body: { padding: "12px" } }}
-          >
-            <div className="space-y-2">
-              {/* Header - Compact Info */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Text strong className="text-sm text-gray-900">
-                      {order.code}
-                    </Text>
-                    {(order as any).type === "warranty_claim" && (
-                      <Tag color="purple" className="text-xs">
-                        Bảo hành
-                      </Tag>
-                    )}
-                  </div>
-                  <Tag
-                    color={
-                      metrics.urgencyLevel === "urgent"
-                        ? "red"
-                        : metrics.urgencyLevel === "warning"
-                        ? "orange"
-                        : "blue"
-                    }
-                    icon={<ClockCircleOutlined />}
-                    className="text-xs"
-                  >
-                    {metrics.daysRemaining > 0
-                      ? `${metrics.daysRemaining}d`
-                      : "Quá hạn"}
-                  </Tag>
-                </div>
+    const columnStyle = columnsKanban.find((col) => col.key === order.status);
+    return (
+        <Draggable draggableId={order.id} index={index}>
+            {(provided, snapshot) => (
+                <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                    className={`mb-2 transition-transform duration-200 ${
+                        snapshot.isDragging
+                            ? "rotate-1 scale-105 shadow-lg"
+                            : ""
+                    }`}
+                >
+                    <Card
+                        onClick={() => onEdit(order)}
+                        size="small"
+                        className="shadow-sm hover:shadow-md transition-all cursor-pointer w-full"
+                        style={{
+                            borderLeft: `4px solid ${columnStyle?.color || "#3f3f46"}`,
+                            backgroundColor: "#27272a",
+                            color: "#d9d9d9",
+                        }}
+                        styles={{
+                            body: {
+                                padding: "12px",
+                                backgroundColor: "#27272a",
+                            },
+                        }}
+                    >
+                        <div className="space-y-2">
+                            {/* Header - Compact Info */}
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1">
+                                        <Text
+                                            strong
+                                            className="text-sm"
+                                            style={{ color: "#fafafa" }}
+                                        >
+                                            {order.code}
+                                        </Text>
+                                        {(order as any).type ===
+                                            "warranty_claim" && (
+                                            <Tag
+                                                color="purple"
+                                                className="text-xs"
+                                            >
+                                                Bảo hành
+                                            </Tag>
+                                        )}
+                                    </div>
+                                    <Tag
+                                        style={{
+                                            backgroundColor: "#1677ff",
+                                            color: "#fafafa",
+                                            border: "none",
+                                        }}
+                                        icon={<ClockCircleOutlined />}
+                                        className="text-xs"
+                                    >
+                                        {metrics.daysRemaining > 0
+                                            ? `${metrics.daysRemaining}d`
+                                            : "Quá hạn"}
+                                    </Tag>
+                                </div>
 
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <UserOutlined className="w-3 h-3" />
-                  <Text className="truncate" title={order.customerName}>
-                    {order.customerName}
-                  </Text>
-                </div>
-              </div>
-
-              {/* Progress - Compact Display */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600">Tiến độ</span>
-                  <span className="font-medium">
-                    {metrics.completedWorkflows}/{metrics.totalWorkflows}
-                  </span>
-                </div>
-                <Progress
-                  percent={metrics.progressPercent}
-                  size="small"
-                  status={
-                    metrics.progressPercent === 100 ? "success" : "active"
-                  }
-                  strokeColor={{
-                    "0%": "#108ee9",
-                    "100%": "#87d068",
-                  }}
-                  showInfo={false}
-                  strokeWidth={6}
-                />
-              </div>
-
-              {/* Products - Streamlined List */}
-              {order?.products && Object.keys(order.products).length > 0 && (
-                <div className="space-y-1 max-h-32 overflow-auto scrollbar-thin scrollbar-thumb-gray-300">
-                  {Object.entries(order.products).map(
-                    ([productId, product]) => (
-                      <div
-                        key={productId}
-                        className="bg-gray-50 p-2 rounded border-l-2 border-blue-200"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-1 min-w-0 flex-1">
-                            <TagOutlined className="text-xs text-gray-400 shrink-0" />
-                            <Text className="text-xs font-medium truncate">
-                              {product?.name || "Sản phẩm"}
-                            </Text>
-                          </div>
-                          {product?.quantity && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              x{product.quantity}
-                            </span>
-                          )}
-                        </div>
-                        {product?.workflows &&
-                          Object.keys(product.workflows).length > 0 && (
-                            <div className="mt-1">
-                              <MemberTag
-                                workflows={Object.values(product.workflows)}
-                                members={members}
-                              />
+                                <div
+                                    className="flex items-center gap-1 text-xs"
+                                    style={{ color: "#d9d9d9" }}
+                                >
+                                    <UserOutlined className="w-3 h-3" />
+                                    <Text
+                                        className="truncate"
+                                        style={{ color: "#d9d9d9" }}
+                                        title={order.customerName}
+                                    >
+                                        {order.customerName}
+                                    </Text>
+                                </div>
                             </div>
-                          )}
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
 
-              {/* Footer - Essential Info */}
-              <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <CalendarOutlined className="w-3 h-3" />
-                  <span>
-                    {order.createdAt
-                      ? dayjs(order.createdAt).format("DD/MM")
-                      : "N/A"}
-                  </span>
-                </div>
+                            {/* Progress - Compact Display */}
+                            <div className="space-y-1">
+                                <div
+                                    className="flex items-center justify-between text-xs"
+                                    style={{ color: "#fafafa" }}
+                                >
+                                    <span style={{ color: "#fafafa" }}>
+                                        Tiến độ
+                                    </span>
+                                    <span
+                                        className="font-medium"
+                                        style={{ color: "#fafafa" }}
+                                    >
+                                        {metrics.completedWorkflows}/
+                                        {metrics.totalWorkflows}
+                                    </span>
+                                </div>
+                                <Progress
+                                    percent={metrics.progressPercent}
+                                    size="small"
+                                    status={
+                                        metrics.progressPercent === 100
+                                            ? "success"
+                                            : "active"
+                                    }
+                                    strokeColor={
+                                        metrics.progressPercent === 100
+                                            ? "#52c41a"
+                                            : columnStyle?.color || "#fadb14"
+                                    }
+                                    trailColor="#3f3f46"
+                                    showInfo={false}
+                                    strokeWidth={6}
+                                />
+                            </div>
 
-                <div className="flex items-center gap-1">
-                  <DollarOutlined className="w-3 h-3 text-green-600" />
-                  <Text className="text-xs font-semibold text-green-600">
-                    {formatCurrency(order.totalAmount || 0)}
-                  </Text>
-                </div>
-              </div>
+                            {/* Products - Streamlined List */}
+                            {order?.products &&
+                                Object.keys(order.products).length > 0 && (
+                                    <div className="space-y-1 max-h-32 overflow-auto scrollbar-thin scrollbar-thumb-gray-300">
+                                        {Object.entries(order.products).map(
+                                            ([productId, product]) => (
+                                                <div
+                                                    key={productId}
+                                                    style={{
+                                                        backgroundColor:
+                                                            "#3f3f46",
+                                                        padding: "8px",
+                                                        borderRadius: "4px",
+                                                        borderLeft:
+                                                            "2px solid #1677ff",
+                                                    }}
+                                                >
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                            <TagOutlined
+                                                                className="text-xs shrink-0"
+                                                                style={{
+                                                                    color: "#d9d9d9",
+                                                                }}
+                                                            />
+                                                            <Text
+                                                                className="text-xs font-medium truncate"
+                                                                style={{
+                                                                    color: "#d9d9d9",
+                                                                }}
+                                                            >
+                                                                {product?.name ||
+                                                                    "Sản phẩm"}
+                                                            </Text>
+                                                        </div>
+                                                        {product?.quantity && (
+                                                            <span
+                                                                className="text-xs ml-1"
+                                                                style={{
+                                                                    color: "#d9d9d9",
+                                                                }}
+                                                            >
+                                                                x
+                                                                {
+                                                                    product.quantity
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {product?.workflows &&
+                                                        Object.keys(
+                                                            product.workflows,
+                                                        ).length > 0 && (
+                                                            <div className="mt-1">
+                                                                <MemberTag
+                                                                    workflows={Object.values(
+                                                                        product.workflows,
+                                                                    )}
+                                                                    members={
+                                                                        members
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        )}
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+                                )}
 
-              {/* Notes - Compact */}
-              {order.notes && (
-                <div>
-                  <Text>Ghi chú:</Text>
-                  <Tooltip title={order.notes} placement="topLeft">
-                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded truncate">
-                      {order.notes}
-                    </div>
-                  </Tooltip>
+                            {/* Footer - Essential Info */}
+                            <div
+                                className="flex items-center justify-between pt-1"
+                                style={{ borderTop: "1px solid #3f3f46" }}
+                            >
+                                <div
+                                    className="flex items-center gap-1 text-xs"
+                                    style={{ color: "#d9d9d9" }}
+                                >
+                                    <CalendarOutlined className="w-3 h-3" />
+                                    <span>
+                                        {order.createdAt
+                                            ? dayjs(order.createdAt).format(
+                                                  "DD/MM",
+                                              )
+                                            : "N/A"}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                    <DollarOutlined
+                                        className="w-3 h-3"
+                                        style={{ color: "#52c41a" }}
+                                    />
+                                    <Text
+                                        className="text-xs font-semibold"
+                                        style={{ color: "#52c41a" }}
+                                    >
+                                        {formatCurrency(order.totalAmount || 0)}
+                                    </Text>
+                                </div>
+                            </div>
+
+                            {/* Notes - Compact */}
+                            {order.notes && (
+                                <div>
+                                    <Text style={{ color: "#fafafa" }}>
+                                        Ghi chú:
+                                    </Text>
+                                    <Tooltip
+                                        title={order.notes}
+                                        placement="topLeft"
+                                    >
+                                        <div
+                                            className="text-xs px-2 py-1 rounded truncate"
+                                            style={{
+                                                color: "#fafafa",
+                                                backgroundColor: "#3f3f46",
+                                            }}
+                                        >
+                                            {order.notes}
+                                        </div>
+                                    </Tooltip>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
                 </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-    </Draggable>
-  );
+            )}
+        </Draggable>
+    );
 };

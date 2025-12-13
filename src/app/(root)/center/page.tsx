@@ -128,7 +128,7 @@ export default function CenterPage() {
         }
 
         return (
-          <div key={sectionIndex} style={{ marginBottom: 48 }}>
+          <Card key={sectionIndex} style={{ marginBottom: 48 }}>
             {/* Section Title */}
             <div
               style={{
@@ -214,7 +214,7 @@ export default function CenterPage() {
                 );
               })}
             </Row>
-          </div>
+          </Card>
         );
       })}
     </WrapperContent>

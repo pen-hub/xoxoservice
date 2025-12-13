@@ -45,6 +45,11 @@ export class CategoryService {
       categoryData.color = category.color;
     }
 
+    // Only add parentCode if it exists
+    if (category.parentCode !== undefined && category.parentCode !== null && category.parentCode !== '') {
+      categoryData.parentCode = category.parentCode;
+    }
+
     await set(categoryRef, categoryData);
     return categoryData as Category;
   }
@@ -72,6 +77,16 @@ export class CategoryService {
 
     if (category.color !== undefined && category.color !== null && category.color !== '') {
       categoryData.color = category.color;
+    }
+
+    // Handle parentCode: can be set to undefined to remove parent
+    if (category.parentCode !== undefined) {
+      if (category.parentCode !== null && category.parentCode !== '') {
+        categoryData.parentCode = category.parentCode;
+      } else {
+        // Remove parentCode by setting to null
+        categoryData.parentCode = null;
+      }
     }
 
     await update(ref(db, `${CATEGORIES_PATH}/${code}`), categoryData);

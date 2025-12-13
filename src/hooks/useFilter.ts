@@ -38,13 +38,65 @@ const useFilter =(initQuery: IParams = {}) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateQueries = (params: { key: string; value: any }[]) => {
         const newQuery = { ...query };
+
+        // Remove keys that are in params but have empty values
         params.forEach(({ key, value }) => {
+            // If value is explicitly null/undefined, remove the key
+            if (value === undefined || value === null) {
+                delete newQuery[key];
+                return;
+            }
+
+            // If value is empty string or 'all', remove the key
+            if (value === '' || value === 'all') {
+                delete newQuery[key];
+                return;
+            }
+
+            // If value is an empty array, remove the key
+            if (Array.isArray(value) && value.length === 0) {
+                delete newQuery[key];
+                return;
+            }
+
+            // If value is an object (e.g., dateRange), check if it's empty
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                const obj = value as Record<string, any>;
+                // Check if it's a dateRange object
+                if ('from' in obj || 'to' in obj) {
+                    const hasFrom = obj.from !== undefined && obj.from !== null && obj.from !== '';
+                    const hasTo = obj.to !== undefined && obj.to !== null && obj.to !== '';
+                    // If both from and to are empty, remove the key
+                    if (!hasFrom && !hasTo) {
+                        delete newQuery[key];
+                        return;
+                    }
+                } else {
+                    // For other objects, check if it has any non-empty properties
+                    const hasValidProps = Object.values(obj).some(v =>
+                        v !== undefined && v !== null && v !== '' &&
+                        !(Array.isArray(v) && v.length === 0)
+                    );
+                    if (!hasValidProps) {
+                        delete newQuery[key];
+                        return;
+                    }
+                }
+            }
+
+            // Otherwise, set the value (including falsy but valid values like 0, false)
             newQuery[key] = value;
         });
-        const validateParams = _.omitBy(newQuery, (value) =>
-            value === undefined || value === '' || value === null || value === 'all' || (Array.isArray(value) && value.length === 0)
-        );
-        setQuery(validateParams);
+
+        // Keep pagination and sort keys
+        const preservedKeys = ['page', 'limit', 'sort'];
+        preservedKeys.forEach(key => {
+            if (query[key] !== undefined) {
+                newQuery[key] = query[key];
+            }
+        });
+
+        setQuery(newQuery);
     };
 
     const handlePageChange = (page: number, pageSize?: number) => {
@@ -128,16 +180,16 @@ const useFilter =(initQuery: IParams = {}) => {
                     }
 
                     const fieldVal = get(item, key);
-                    // if the item's field is an array, check intersection
+                    // if the item's field is an array, check intersection with exact match
                     if (Array.isArray(fieldVal)) {
                         return value.some(v => fieldVal.includes(v));
                     }
-                    // otherwise check if any token matches (partial match)
-                    return value.some(v =>
-                        String(fieldVal ?? '')
-                            .toLowerCase()
-                            .includes(String(v).toLowerCase())
-                    );
+                    // For select/radio filters with multiple values, use exact match
+                    return value.some(v => {
+                        const fieldStr = String(fieldVal ?? '').toLowerCase().trim();
+                        const valueStr = String(v).toLowerCase().trim();
+                        return fieldStr === valueStr;
+                    });
                 }
 
                 if (isSearchKey) {
@@ -158,9 +210,17 @@ const useFilter =(initQuery: IParams = {}) => {
                     });
                 }
 
-                return String(get(item, key) ?? '')
-                    .toLowerCase()
-                    .includes(String(value).toLowerCase());
+                // For non-search filters (select, radio, etc.), use exact match
+                const itemValue = get(item, key);
+                if (itemValue == null && value == null) return true;
+                if (itemValue == null || value == null) return false;
+
+                // Convert both to string for comparison (handles number/string mismatches)
+                const itemStr = String(itemValue).toLowerCase().trim();
+                const valueStr = String(value).toLowerCase().trim();
+
+                // Use exact match for select/radio filters
+                return itemStr === valueStr;
             });
         });
     };

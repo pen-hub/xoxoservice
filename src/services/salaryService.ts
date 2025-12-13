@@ -32,7 +32,7 @@ export class SalaryService {
 
   static async getSalaryByMemberId(
     memberId: string
-  ): Promise<{ salaryType?: SalaryType; salaryAmount?: number; bonusPercentage?: number; salaryTemplateId?: string } | null> {
+  ): Promise<{ salaryType?: SalaryType; salaryAmount?: number; bonusPercentage?: number; salaryTemplateId?: string; enableRevenueBonus?: boolean; enableCommission?: boolean; commissionRules?: any[]; enableAllowance?: boolean; enableDeduction?: boolean } | null> {
     const snapshot = await get(ref(db, `${MEMBERS_PATH}/${memberId}`));
     const member = snapshot.val();
     if (!member) return null;
@@ -41,19 +41,39 @@ export class SalaryService {
       salaryType: member.salaryType,
       salaryAmount: member.salaryAmount,
       bonusPercentage: member.bonusPercentage ?? 0,
+      enableRevenueBonus: member.enableRevenueBonus ?? false,
+      enableCommission: member.enableCommission ?? false,
+      commissionRules: member.commissionRules,
+      enableAllowance: member.enableAllowance ?? false,
+      enableDeduction: member.enableDeduction ?? false,
       salaryTemplateId: member.salaryTemplateId,
     };
   }
 
   static async setSalary(
     memberId: string,
-    salary: { salaryType: SalaryType; salaryAmount: number; bonusPercentage?: number; salaryTemplateId?: string }
+    salary: {
+      salaryType: SalaryType;
+      salaryAmount: number;
+      enableRevenueBonus?: boolean;
+      bonusPercentage?: number;
+      salaryTemplateId?: string;
+      enableCommission?: boolean;
+      commissionRules?: any[];
+      enableAllowance?: boolean;
+      enableDeduction?: boolean;
+    }
   ): Promise<void> {
     const salaryData = removeUndefined({
       salaryType: salary.salaryType,
       salaryAmount: salary.salaryAmount,
+      enableRevenueBonus: salary.enableRevenueBonus ?? false,
       bonusPercentage: salary.bonusPercentage ?? 0,
       salaryTemplateId: salary.salaryTemplateId,
+      enableCommission: salary.enableCommission ?? false,
+      commissionRules: salary.commissionRules,
+      enableAllowance: salary.enableAllowance ?? false,
+      enableDeduction: salary.enableDeduction ?? false,
       updatedAt: new Date().getTime(),
     });
     await update(ref(db, `${MEMBERS_PATH}/${memberId}`), salaryData);

@@ -44,6 +44,7 @@ export interface WorkflowData {
   workflowCode: string[];
   workflowName: string[];
   members: string[];
+  consultantId?: string;
   isDone: boolean;
 }
 
@@ -68,6 +69,7 @@ export interface FirebaseWorkflowData {
   workflowCode: string[];
   workflowName: string[];
   members: string[];
+  consultantId?: string;
   isDone: boolean;
   updatedAt: number;
 }
@@ -207,4 +209,5 @@ export interface ProductCardProps {
   workflows: FirebaseWorkflows;
   staff: FirebaseStaff;
   departments: FirebaseDepartments;
+  memberOptions?: Record<string, Array<{ value: string; label: string }>>;
 }

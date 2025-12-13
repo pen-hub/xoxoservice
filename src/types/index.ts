@@ -40,13 +40,14 @@ export interface ApiResponse<T = any> {
 
 
 export interface FilterField {
-  type: "input" | "select" | "date" | "dateRange" | "month";
+  type: "input" | "select" | "date" | "dateRange" | "month" | "radio";
   name: string;
   label: string;
   isMultiple?: boolean;
   placeholder?: string;
   options?: { label: string; value: string | number | boolean }[];
   presets?: Array<{ label: string; value: [any, any] | readonly [any, any] }>;
+  onAddNew?: () => void;
 }
 
 export interface ColumnSetting {
