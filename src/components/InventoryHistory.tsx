@@ -431,7 +431,7 @@ export default function InventoryHistory() {
               title="Số lần nhập"
               value={importCount}
               suffix="lần"
-              valueStyle={{ color: "#3f8600" }}
+              styles={{ content: { color: "#3f8600" } }}
             />
           </Card>
         </Col>
@@ -441,7 +441,7 @@ export default function InventoryHistory() {
               title="Số lần xuất"
               value={exportCount}
               suffix="lần"
-              valueStyle={{ color: "#cf1322" }}
+              styles={{ content: { color: "#cf1322" } }}
             />
           </Card>
         </Col>
@@ -452,7 +452,7 @@ export default function InventoryHistory() {
               value={totalImport}
               prefix="+"
               suffix="VND"
-              valueStyle={{ color: "#3f8600" }}
+              styles={{ content: { color: "#3f8600" } }}
             />
           </Card>
         </Col>
@@ -463,7 +463,7 @@ export default function InventoryHistory() {
               value={totalExport}
               prefix="-"
               suffix="VND"
-              valueStyle={{ color: "#cf1322" }}
+              styles={{ content: { color: "#cf1322" } }}
             />
           </Card>
         </Col>
@@ -473,8 +473,8 @@ export default function InventoryHistory() {
               title="Chênh lệch"
               value={totalImport - totalExport}
               suffix="VND"
-              valueStyle={{
-                color: totalImport - totalExport >= 0 ? "#3f8600" : "#cf1322",
+              styles={{
+                content: { color: totalImport - totalExport >= 0 ? "#3f8600" : "#cf1322" },
               }}
             />
           </Card>

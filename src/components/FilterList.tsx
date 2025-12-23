@@ -25,17 +25,19 @@ interface FilterListProps {
     isMobile: boolean;
     instant?: boolean;
     initValues?: Record<string, any>;
+    layout?: "vertical" | "horizontal";
 }
 
 export const FilterList: React.FC<FilterListProps> = ({
     fields,
     onApplyFilter,
     onReset,
-    onCancel = () => {},
+    onCancel = () => { },
     isMobile,
     form,
     instant = false,
     initValues,
+    layout = "vertical",
 }) => {
     const handleReset = () => {
         form.resetFields();
@@ -79,7 +81,6 @@ export const FilterList: React.FC<FilterListProps> = ({
     };
 
     const handleValuesChange = (_: any, values: Record<string, any>) => {
-        console.log(values, "sdfsdfdđ");
         if (!instant) return;
         const payload: { key: string; value: any }[] = [];
         const normalize = (v: any) => {
@@ -285,9 +286,11 @@ export const FilterList: React.FC<FilterListProps> = ({
         return null;
     }
 
+    const isHorizontal = layout === "horizontal";
+
     return (
         <Card title={instant ? "Bộ lọc" : null} className="h-fit">
-            {!instant && (
+            {!instant && !isHorizontal && (
                 <>
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="font-semibold mb-0">Bộ lọc</h3>
@@ -296,16 +299,25 @@ export const FilterList: React.FC<FilterListProps> = ({
                 </>
             )}
             <Form
-                layout="vertical"
+                layout={isHorizontal ? "inline" : "vertical"}
                 form={form}
                 onFinish={handleFinish}
                 onValuesChange={handleValuesChange}
             >
-                <div className="space-y-4">
+                <div className={isHorizontal ? "flex flex-wrap gap-3 items-end" : "space-y-4"}>
                     {fields.map((field) => renderField(field))}
+
+                    {!instant && isHorizontal && (
+                        <div className="flex gap-2">
+                            <Button onClick={handleReset}>Đặt lại</Button>
+                            <Button type="primary" htmlType="submit">
+                                Áp dụng
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
-                {!instant && (
+                {!instant && !isHorizontal && (
                     <div className="flex justify-end gap-2 mt-4">
                         <Button onClick={handleReset}>Đặt lại</Button>
                         <Button type="primary" htmlType="submit">

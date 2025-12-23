@@ -67,13 +67,13 @@ interface LeftControlsProps {
     isFilterVisible: boolean;
     setIsFilterVisible: React.Dispatch<React.SetStateAction<boolean>>;
     onApplyFilter?:
-        | ((
-              arr: {
-                  key: string;
-                  value: any;
-              }[],
-          ) => void)
-        | undefined;
+    | ((
+        arr: {
+            key: string;
+            value: any;
+        }[],
+    ) => void)
+    | undefined;
     formFilter: FormInstance<any>;
     showFilterToggle?: boolean;
 }
@@ -208,14 +208,14 @@ const LeftControls: React.FC<LeftControlsProps> = ({
                                                         header.columnSettings!.columns.map(
                                                             (col) =>
                                                                 col.key ===
-                                                                column.key
+                                                                    column.key
                                                                     ? {
-                                                                          ...col,
-                                                                          visible:
-                                                                              e
-                                                                                  .target
-                                                                                  .checked,
-                                                                      }
+                                                                        ...col,
+                                                                        visible:
+                                                                            e
+                                                                                .target
+                                                                                .checked,
+                                                                    }
                                                                     : col,
                                                         );
                                                     header.columnSettings!.onChange(
@@ -278,12 +278,12 @@ interface RightControlsProps {
             danger?: boolean;
             isLoading?: boolean;
             type?:
-                | "link"
-                | "default"
-                | "text"
-                | "primary"
-                | "dashed"
-                | undefined;
+            | "link"
+            | "default"
+            | "text"
+            | "primary"
+            | "dashed"
+            | undefined;
             onClick?: () => void;
             name: string;
             icon: React.ReactNode;
@@ -387,19 +387,19 @@ const RightControls: React.FC<RightControlsProps> = ({
                 {(header.searchInput ||
                     header.filters ||
                     header.columnSettings) && (
-                    <Tooltip title="Tùy chọn">
-                        <Button
-                            disabled={isLoading || isRefetching}
-                            type={
-                                hasActiveFilters || hasActiveColumnSettings
-                                    ? "primary"
-                                    : "default"
-                            }
-                            icon={<FilterOutlined />}
-                            onClick={() => setIsMobileOptionsOpen(true)}
-                        />
-                    </Tooltip>
-                )}
+                        <Tooltip title="Tùy chọn">
+                            <Button
+                                disabled={isLoading || isRefetching}
+                                type={
+                                    hasActiveFilters || hasActiveColumnSettings
+                                        ? "primary"
+                                        : "default"
+                                }
+                                icon={<FilterOutlined />}
+                                onClick={() => setIsMobileOptionsOpen(true)}
+                            />
+                        </Tooltip>
+                    )}
             </div>
         );
     }
@@ -466,12 +466,12 @@ interface WrapperContentProps<T extends object> {
             danger?: boolean;
             isLoading?: boolean;
             type?:
-                | "link"
-                | "default"
-                | "text"
-                | "primary"
-                | "dashed"
-                | undefined;
+            | "link"
+            | "default"
+            | "text"
+            | "primary"
+            | "dashed"
+            | undefined;
             onClick?: () => void;
             name: string;
             icon: React.ReactNode;
@@ -517,27 +517,9 @@ function WrapperContent<T extends object>({
     const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
     const [isFilterVisible, setIsFilterVisible] = useState(false);
 
-    // Load filter panel collapsed state from localStorage
-    const [isFilterPanelCollapsed, setIsFilterPanelCollapsed] = useState(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("filterPanelCollapsed");
-            return saved === "true";
-        }
-        return false;
-    });
 
-    // Load toggle button position from localStorage
-    const [toggleButtonTop, setToggleButtonTop] = useState(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("filterToggleButtonTop");
-            return saved ? parseInt(saved, 10) : 127;
-        }
-        return 120;
-    });
 
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStartY, setDragStartY] = useState(0);
-    const [dragStartTop, setDragStartTop] = useState(0);
+
     const breakpoint = useWindowBreakpoint();
     const isMobileView =
         BREAK_POINT_WIDTH[breakpoint] <= BREAK_POINT_WIDTH[BreakpointEnum.LG];
@@ -629,7 +611,7 @@ function WrapperContent<T extends object>({
 
         const debounced = debounce((value: string) => {
             header.filters!.onApplyFilter([{ key: searchKey, value: value }]);
-        }, 500);
+        }, 250); // Reduced from 500ms to 250ms for faster response
 
         debounced(searchTerm);
 
@@ -640,25 +622,7 @@ function WrapperContent<T extends object>({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchTerm]);
 
-    // Save toggle button position to localStorage
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            localStorage.setItem(
-                "filterToggleButtonTop",
-                toggleButtonTop.toString(),
-            );
-        }
-    }, [toggleButtonTop]);
 
-    // Save filter panel collapsed state to localStorage
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            localStorage.setItem(
-                "filterPanelCollapsed",
-                isFilterPanelCollapsed.toString(),
-            );
-        }
-    }, [isFilterPanelCollapsed]);
 
     // Sync form with query values
     useEffect(() => {
@@ -693,17 +657,17 @@ function WrapperContent<T extends object>({
                     const rangeValue = [
                         dateRange.from
                             ? dayjs(
-                                  dateRange.from instanceof Date
-                                      ? dateRange.from
-                                      : new Date(dateRange.from),
-                              )
+                                dateRange.from instanceof Date
+                                    ? dateRange.from
+                                    : new Date(dateRange.from),
+                            )
                             : null,
                         dateRange.to
                             ? dayjs(
-                                  dateRange.to instanceof Date
-                                      ? dateRange.to
-                                      : new Date(dateRange.to),
-                              )
+                                dateRange.to instanceof Date
+                                    ? dateRange.to
+                                    : new Date(dateRange.to),
+                            )
                             : null,
                     ];
                     // Only set if at least one date is present
@@ -729,289 +693,91 @@ function WrapperContent<T extends object>({
         }
     }, [header.filters?.query, header.filters?.fields, formFilter]);
 
-    // Handle drag functionality with requestAnimationFrame for smooth dragging
-    useEffect(() => {
-        if (!isDragging) return;
 
-        let animationFrameId: number;
-
-        const handleMouseMove = (e: MouseEvent) => {
-            animationFrameId = requestAnimationFrame(() => {
-                const deltaY = e.clientY - dragStartY;
-                const newTop = Math.max(
-                    60,
-                    Math.min(window.innerHeight - 60, dragStartTop + deltaY),
-                );
-                setToggleButtonTop(newTop);
-            });
-        };
-
-        const handleMouseUp = () => {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-            setIsDragging(false);
-        };
-
-        window.addEventListener("mousemove", handleMouseMove, {
-            passive: true,
-        });
-        window.addEventListener("mouseup", handleMouseUp);
-
-        return () => {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-        };
-    }, [isDragging, dragStartY, dragStartTop]);
-
-    const handleDragStart = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(true);
-        setDragStartY(e.clientY);
-        setDragStartTop(toggleButtonTop);
-    };
 
     return (
         <div className={`${className} flex flex-col justify-start relative`}>
-            {!isMobileView && header.filters && header.filters.fields ? (
-                <>
-                    {/* Toggle Button - Fixed Position, Draggable */}
-                    {header.filters.fields.length > 0 && (
-                        <Button
-                            type={hasFilters ? "primary" : "dashed"}
-                            size="small"
-                            icon={
-                                header.filters?.toggleIcon || <FilterOutlined />
+            <div className="space-y-4">
+                {/* Horizontal Filter Row - Always visible at top if filters exist */}
+                {!isMobileView &&
+                    header.filters &&
+                    header.filters.fields &&
+                    header.filters.fields.length > 0 && (
+                        <FilterList
+                            isMobile={false}
+                            form={formFilter}
+                            fields={header.filters.fields}
+                            onApplyFilter={(arr) =>
+                                header.filters!.onApplyFilter(arr)
                             }
-                            onClick={(e) => {
-                                if (!isDragging) {
-                                    setIsFilterPanelCollapsed(
-                                        !isFilterPanelCollapsed,
-                                    );
-                                }
-                            }}
-                            onMouseDown={handleDragStart}
-                            className={`bg-background shadow-md hover:shadow-lg transition-all duration-300 select-none ${
-                                isDragging ? "cursor-grabbing" : "cursor-move"
-                            }`}
-                            style={{
-                                position: "absolute",
-                                zIndex: 1000,
-                                width: "30px",
-                                height: "30px",
-                                left: isFilterPanelCollapsed ? "0" : "270px",
-                                top: `${toggleButtonTop}px`,
-                                pointerEvents: "auto",
-                                transition: isDragging
-                                    ? "none"
-                                    : "all 0.3s ease",
-                            }}
+                            onReset={() =>
+                                header.filters?.onReset &&
+                                header.filters.onReset()
+                            }
+                            layout="horizontal"
                         />
                     )}
 
-                    <div className="flex gap-4 relative">
-                        {/* Left Filter Panel */}
-                        {header.filters.fields.length > 0 && (
-                            <div
-                                className={`shrink-0 transition-all duration-300 ease-in-out ${
-                                    isFilterPanelCollapsed
-                                        ? "w-0 opacity-0 pointer-events-none"
-                                        : "w-70 opacity-100"
-                                }`}
-                                style={{
-                                    position: "sticky",
-                                    top: "20px",
-                                    alignSelf: "flex-start",
-                                    height: "fit-content",
-                                    maxHeight: "calc(100vh - 40px)",
-                                    overflowY: "auto",
-                                }}
-                            >
-                                <div
-                                    className={`transition-all duration-300 ${
-                                        isFilterPanelCollapsed
-                                            ? "-translate-x-full"
-                                            : "translate-x-0"
-                                    }`}
-                                >
-                                    <FilterList
-                                        isMobile={false}
-                                        form={formFilter}
-                                        fields={header.filters?.fields || []}
-                                        onApplyFilter={(arr) =>
-                                            header.filters!.onApplyFilter(arr)
-                                        }
-                                        onReset={() =>
-                                            header.filters?.onReset &&
-                                            header.filters.onReset()
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Right Content Area */}
-                        <div className="flex-1 min-w-0 space-y-4 transition-all duration-300 w-full">
-                            <div className="flex items-center justify-between">
-                                <LeftControls
-                                    formFilter={formFilter}
-                                    onApplyFilter={
-                                        header.filters?.onApplyFilter
-                                    }
-                                    isMobile={isMobileView}
-                                    header={header}
-                                    isLoading={isLoading}
-                                    isRefetching={isRefetching}
-                                    router={router}
-                                    searchTerm={searchTerm}
-                                    setSearchTerm={setSearchTerm}
-                                    isOpenColumnSettings={isOpenColumnSettings}
-                                    setIsOpenColumnSettings={
-                                        setIsOpenColumnSettings
-                                    }
-                                    hasActiveColumnSettings={
-                                        hasActiveColumnSettings
-                                    }
-                                    hasFilters={hasFilters}
-                                    hasActiveFilters={hasActiveFilters}
-                                    handleResetFilters={handleResetFilters}
-                                    isFilterVisible={isFilterVisible}
-                                    setIsFilterVisible={setIsFilterVisible}
-                                    showFilterToggle={false}
-                                />
-                                <RightControls
-                                    isMobile={isMobileView}
-                                    header={header}
-                                    isLoading={isLoading}
-                                    isRefetching={isRefetching}
-                                    hasFilters={hasFilters}
-                                    handleResetFilters={handleResetFilters}
-                                    hasActiveFilters={hasActiveFilters}
-                                    hasActiveColumnSettings={
-                                        hasActiveColumnSettings
-                                    }
-                                    setIsMobileOptionsOpen={
-                                        setIsMobileOptionsOpen
-                                    }
-                                />
-                            </div>
-
-                            <Suspense
-                                fallback={
-                                    <div className="flex min-h-[400px] items-center justify-center">
-                                        <LoaderApp />
-                                    </div>
-                                }
-                            >
-                                {isNotAccessible && !isLoading && (
-                                    <AccessDenied />
-                                )}
-                                {isEmpty &&
-                                    !isNotAccessible &&
-                                    !isLoading &&
-                                    !isRefetching && (
-                                        <div className="flex min-h-[400px] items-center justify-center">
-                                            <Empty description="Không có dữ liệu" />
-                                        </div>
-                                    )}
-                                {isLoading && !isRefetching && (
-                                    <div className="flex min-h-[400px] items-center justify-center">
-                                        <LoaderApp />
-                                    </div>
-                                )}
-                                {!isLoading &&
-                                    !isNotAccessible &&
-                                    !isEmpty &&
-                                    children}
-                            </Suspense>
-                        </div>
-                    </div>
-                </>
-            ) : (
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <LeftControls
-                            formFilter={formFilter}
-                            onApplyFilter={header.filters?.onApplyFilter}
-                            isMobile={isMobileView}
-                            header={header}
-                            isLoading={isLoading}
-                            isRefetching={isRefetching}
-                            router={router}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            isOpenColumnSettings={isOpenColumnSettings}
-                            setIsOpenColumnSettings={setIsOpenColumnSettings}
-                            hasActiveColumnSettings={hasActiveColumnSettings}
-                            hasFilters={hasFilters}
-                            hasActiveFilters={hasActiveFilters}
-                            handleResetFilters={handleResetFilters}
-                            isFilterVisible={isFilterVisible}
-                            setIsFilterVisible={setIsFilterVisible}
-                        />
-                        <RightControls
-                            isMobile={isMobileView}
-                            header={header}
-                            isLoading={isLoading}
-                            isRefetching={isRefetching}
-                            hasFilters={hasFilters}
-                            handleResetFilters={handleResetFilters}
-                            hasActiveFilters={hasActiveFilters}
-                            hasActiveColumnSettings={hasActiveColumnSettings}
-                            setIsMobileOptionsOpen={setIsMobileOptionsOpen}
-                        />
-                    </div>
-
-                    {/* Desktop inline filter panel (always visible on desktop) */}
-                    {!isMobileView &&
-                        header.filters &&
-                        header.filters.fields &&
-                        isFilterVisible && (
-                            <div className="mt-4">
-                                <FilterList
-                                    isMobile={false}
-                                    form={formFilter}
-                                    fields={header.filters?.fields || []}
-                                    onApplyFilter={(arr) =>
-                                        header.filters!.onApplyFilter(arr)
-                                    }
-                                    onReset={() =>
-                                        header.filters?.onReset &&
-                                        header.filters.onReset()
-                                    }
-                                />
-                            </div>
-                        )}
-
-                    <Suspense
-                        fallback={
-                            <div className="flex min-h-[400px] items-center justify-center">
-                                <LoaderApp />
-                            </div>
-                        }
-                    >
-                        {isNotAccessible && !isLoading && <AccessDenied />}
-                        {isEmpty &&
-                            !isNotAccessible &&
-                            !isLoading &&
-                            !isRefetching && (
-                                <div className="flex min-h-[400px] items-center justify-center">
-                                    <Empty description="Không có dữ liệu" />
-                                </div>
-                            )}
-                        {isLoading && !isRefetching && (
-                            <div className="flex min-h-[400px] items-center justify-center">
-                                <LoaderApp />
-                            </div>
-                        )}
-                        {!isLoading && !isNotAccessible && !isEmpty && children}
-                    </Suspense>
+                {/* Search and Action Buttons Row */}
+                <div className="flex items-center justify-between">
+                    <LeftControls
+                        formFilter={formFilter}
+                        onApplyFilter={header.filters?.onApplyFilter}
+                        isMobile={isMobileView}
+                        header={header}
+                        isLoading={isLoading}
+                        isRefetching={isRefetching}
+                        router={router}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        isOpenColumnSettings={isOpenColumnSettings}
+                        setIsOpenColumnSettings={setIsOpenColumnSettings}
+                        hasActiveColumnSettings={hasActiveColumnSettings}
+                        hasFilters={hasFilters}
+                        hasActiveFilters={hasActiveFilters}
+                        handleResetFilters={handleResetFilters}
+                        isFilterVisible={isFilterVisible}
+                        setIsFilterVisible={setIsFilterVisible}
+                        showFilterToggle={false}
+                    />
+                    <RightControls
+                        isMobile={isMobileView}
+                        header={header}
+                        isLoading={isLoading}
+                        isRefetching={isRefetching}
+                        hasFilters={hasFilters}
+                        handleResetFilters={handleResetFilters}
+                        hasActiveFilters={hasActiveFilters}
+                        hasActiveColumnSettings={hasActiveColumnSettings}
+                        setIsMobileOptionsOpen={setIsMobileOptionsOpen}
+                    />
                 </div>
-            )}
+
+                {/* Main Content */}
+                <Suspense
+                    fallback={
+                        <div className="flex min-h-[400px] items-center justify-center">
+                            <LoaderApp />
+                        </div>
+                    }
+                >
+                    {isNotAccessible && !isLoading && <AccessDenied />}
+                    {isEmpty &&
+                        !isNotAccessible &&
+                        !isLoading &&
+                        !isRefetching && (
+                            <div className="flex min-h-[400px] items-center justify-center">
+                                <Empty description="Không có dữ liệu" />
+                            </div>
+                        )}
+                    {isLoading && !isRefetching && (
+                        <div className="flex min-h-[400px] items-center justify-center">
+                            <LoaderApp />
+                        </div>
+                    )}
+                    {!isLoading && !isNotAccessible && !isEmpty && children}
+                </Suspense>
+            </div>
 
             {/* Mobile modal for filters / settings */}
             <Modal
@@ -1080,11 +846,11 @@ function WrapperContent<T extends object>({
                                                     (col) =>
                                                         col.key === column.key
                                                             ? {
-                                                                  ...col,
-                                                                  visible:
-                                                                      e.target
-                                                                          .checked,
-                                                              }
+                                                                ...col,
+                                                                visible:
+                                                                    e.target
+                                                                        .checked,
+                                                            }
                                                             : col,
                                                 );
                                             header.columnSettings!.onChange(

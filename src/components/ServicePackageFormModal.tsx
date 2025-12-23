@@ -158,7 +158,7 @@ const ServicePackageFormModal: React.FC<ServicePackageFormModalProps> = ({
                 Object.entries(packageData).filter(
                     ([_, value]) => value !== undefined,
                 ),
-            ) as ServicePackage;
+            ) as unknown as ServicePackage;
 
             const packageRef = ref(
                 database,
@@ -416,7 +416,7 @@ const ServicePackageFormModal: React.FC<ServicePackageFormModalProps> = ({
                                                 pagination={false}
                                                 size="small"
                                                 rowKey={(_, index) =>
-                                                    index.toString()
+                                                    (index ?? 0).toString()
                                                 }
                                             />
                                         )}

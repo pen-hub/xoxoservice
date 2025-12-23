@@ -1,6 +1,7 @@
 "use client";
 
 import LoaderApp from "@/components/LoaderApp";
+import FeatureSearch from "@/components/FeatureSearch";
 import { allMenuItems, breadcrumbMap } from "@/configs/menu";
 import ROLES_CONFIG from "@/configs/role";
 import { useAuth, useUser } from "@/firebase/provider";
@@ -13,6 +14,7 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     UserOutlined,
+    HomeOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import {
@@ -156,15 +158,28 @@ export default function DashboardLayout({
     // All other hooks must be called before any conditional returns
     const getBreadcrumbTitle = (path: string) => {
         // Kiểm tra exact match
-        if (breadcrumbMap[path])
+        if (breadcrumbMap[path]) {
+            const parentItem = allMenuItems.find((item) =>
+                item.children?.some((child) => child.href === path),
+            );
+
+            // Get parent path from first child href
+            let parentPath: string | null = null;
+            if (parentItem?.children && parentItem.children.length > 0) {
+                const firstChildHref = parentItem.children.find((c) => !!c.href)?.href;
+                if (firstChildHref) {
+                    const segments = firstChildHref.split("/");
+                    parentPath = segments[1] ? `/${segments[1]}` : null;
+                }
+            }
+
             return {
                 title: breadcrumbMap[path],
                 path: path,
-                parent:
-                    allMenuItems.find((item) =>
-                        item.children?.some((child) => child.href === path),
-                    )?.title || null,
+                parent: parentItem?.title || null,
+                parentPath: parentPath,
             };
+        }
 
         // // Kiểm tra dynamic routes (có /[id]/)
         // for (const [key, value] of Object.entries(breadcrumbMap)) {
@@ -177,13 +192,79 @@ export default function DashboardLayout({
         //   }
         // }
 
-        return { title: "Trang chủ", path: "/dashboard", parent: null };
+        return { title: "Trang chủ", path: "/dashboard", parent: null, parentPath: null };
     };
 
-    const menuItems = filteredMenuItems;
+    // Contextual Menu Logic
+    const menuItems = useMemo(() => {
+        // 1. Always ensure 'Center' is available at the top/start logic
+        const homeItem = (filteredMenuItems.find((item) => item.href === "/center") || {
+            title: "Trung tâm",
+            href: "/center",
+            Icon: HomeOutlined,
+            permission: null,
+            prefix: undefined,
+            disable: false,
+            children: undefined,
+            color: undefined,
+        }) as (typeof allMenuItems)[number];
 
-    const antdMenuItems: MenuProps["items"] = menuItems.map((item, idx) => {
-        // Use href path as the stable key for both root items and children
+        // 2. Identify current active module based on pathname
+        // Ex: /customers/leads -> belongs to 'Khách hàng' module
+        const activeModule = filteredMenuItems.find((item) =>
+            item.children?.some((child) => {
+                const childPath = child.href.split("?")[0]; // remove query params
+                return pathname === childPath || pathname.startsWith(childPath + "/");
+            })
+        );
+
+        // 3. If we are in a specific module (and it has children), show Home + Module Submenu
+        if (activeModule && activeModule.children && activeModule.children.length > 0) {
+            // Check if we are actually allowed to see this module (already filtered by filteredMenuItems)
+
+            // Map children to top-level menu items format
+            const moduleSubItems = activeModule.children.map(child => ({
+                ...child,
+                Icon: child.icon, // map 'icon' (component) to 'Icon' (prop expected by renderer or keep consistency)
+                // Ensure structure matches what antdMenuItems map expects.
+                // Currently antdMenuItems maps: item.Icon -> <item.Icon />
+                // The children have 'icon' property.
+            }));
+
+            // We need to adapt the children structure to match the top-level structure
+            // expected by the rendering logic down below.
+            // Rendering logic expects: title, href, Icon (ComponentType), children?
+
+            // Re-map children to fit the top-level schema
+            const contextualItems = moduleSubItems.map(child => ({
+                title: child.title,
+                href: child.href,
+                Icon: child.icon,
+                permission: child.permission,
+                disable: child.disable,
+                prefix: child.title, // Use title as prefix or undefined
+                color: child.color,
+                children: undefined, // Flattened
+            })) as (typeof allMenuItems)[number][];
+
+            // Only show Home + Contextual Items
+            // But if we are ON the center page, show full list?
+            // pathname check:
+            if (pathname === '/center' || pathname === '/dashboard') {
+                return filteredMenuItems;
+            }
+
+            return [homeItem, ...contextualItems];
+        }
+
+        // 4. Fallback: Show full menu if no specific module matched or on Dashboard/Center
+        return filteredMenuItems;
+    }, [filteredMenuItems, pathname]);
+
+    // Build menu items with SubMenu for parent items with children
+    const antdMenuItems: MenuProps["items"] = useMemo(() => {
+        const items: MenuProps["items"] = [];
+
         const ellipsisStyle: React.CSSProperties = {
             display: "inline-block",
             maxWidth: 140,
@@ -199,74 +280,63 @@ export default function DashboardLayout({
             cursor: "not-allowed",
         };
 
-        if (item.href) {
-            return {
-                key: item.href,
-                icon: <item.Icon />,
-                disabled: item.disable,
-                label: (
-                    <Link href={item.disable ? "#" : item.href}>
-                        <span
-                            style={
-                                item.disable
-                                    ? { ...ellipsisStyle, ...disabledStyle }
-                                    : ellipsisStyle
-                            }
-                        >
-                            {item.title}
-                        </span>
-                    </Link>
-                ),
-            };
-        }
-
-        // Group item (has children)
-        return {
-            key: `group-${idx}`,
-            icon: <item.Icon />,
-            disabled: item.disable,
-            label: (
-                <span
-                    style={
-                        item.disable
-                            ? { ...ellipsisStyle, ...disabledStyle }
-                            : ellipsisStyle
-                    }
-                >
-                    {item.title}
-                </span>
-            ),
-            children: item.children?.map((child) => ({
-                key: child.href,
-                // icon: <child.icon />,
-                disabled: child.disable,
-                label: (
-                    <Link href={child.disable ? "#" : child.href}>
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                color: "white",
-                            }}
-                        >
-                            <child.icon />
+        menuItems.forEach((item) => {
+            // If item has direct href, add it as a top-level item
+            if (item.href) {
+                items.push({
+                    key: item.href,
+                    icon: <item.Icon />,
+                    disabled: item.disable,
+                    label: (
+                        <Link href={item.disable ? "#" : item.href}>
                             <span
-                                className="text-white"
                                 style={
-                                    child.disable
+                                    item.disable
                                         ? { ...ellipsisStyle, ...disabledStyle }
                                         : ellipsisStyle
                                 }
                             >
-                                {child.title}
+                                {item.title}
                             </span>
-                        </div>
-                    </Link>
-                ),
-            })),
-        };
-    });
+                        </Link>
+                    ),
+                });
+            }
+
+            // If item has children, add as SubMenu (collapsible)
+            if (item.children && item.children.length > 0) {
+                items.push({
+                    key: `group-${item.title}`,
+                    icon: <item.Icon />,
+                    label: (
+                        <span style={ellipsisStyle}>
+                            {item.title}
+                        </span>
+                    ),
+                    children: item.children.map((child) => ({
+                        key: child.href,
+                        icon: <child.icon />,
+                        disabled: child.disable,
+                        label: (
+                            <Link href={child.disable ? "#" : child.href}>
+                                <span
+                                    style={
+                                        child.disable
+                                            ? { ...ellipsisStyle, ...disabledStyle }
+                                            : ellipsisStyle
+                                    }
+                                >
+                                    {child.title}
+                                </span>
+                            </Link>
+                        ),
+                    })),
+                });
+            }
+        });
+
+        return items;
+    }, [menuItems]);
 
     // Helper: normalize a menu key (strip query string and trailing slash)
     const normalizeKey = (key?: React.Key) => {
@@ -321,24 +391,7 @@ export default function DashboardLayout({
         return bestKey ? [bestKey] : [];
     };
 
-    const getOpenKeys = () => {
-        const openKeys: string[] = [];
-        for (const item of antdMenuItems || []) {
-            if (!item || !("children" in item) || !item.children) continue;
-            const hasActiveChild = item.children.some((child) => {
-                if (!child || !("key" in child)) return false;
-                const key = normalizeKey(child.key);
-                return (
-                    key && (normPath === key || normPath.startsWith(key + "/"))
-                );
-            });
-            if (hasActiveChild && item.key) openKeys.push(String(item.key));
-        }
-        return openKeys;
-    };
-
-    // Controlled open keys for accordion behavior: keep only one submenu open at a time
-    const [openKeys, setOpenKeys] = useState<string[]>(getOpenKeys());
+    // No longer need openKeys state since menu is flat (no accordion)
 
     const handleLogout = async () => {
         try {
@@ -379,11 +432,22 @@ export default function DashboardLayout({
 
             // Add parent if exists and different from root
             if (breadcrumbInfo.parent && breadcrumbInfo.parent !== rootTitle) {
+                const parentPath = breadcrumbInfo.parentPath || "/center";
                 items.push({
                     title: (
-                        <span className="flex gap-2 items-center">
-                            <span className="">{breadcrumbInfo.parent}</span>
-                        </span>
+                        <Link href={parentPath}>
+                            <span className="flex gap-2 items-center">
+                                <span
+                                    className={
+                                        pathname === parentPath || pathname.startsWith(parentPath + "/")
+                                            ? "font-bold text-primary"
+                                            : ""
+                                    }
+                                >
+                                    {breadcrumbInfo.parent}
+                                </span>
+                            </span>
+                        </Link>
                     ),
                 });
             }
@@ -423,26 +487,7 @@ export default function DashboardLayout({
         },
     ];
 
-    const handleOpenChange = (keys: string[]) => {
-        // keep only the most recently opened key (accordion)
-        if (!keys || keys.length === 0) {
-            setOpenKeys([]);
-            return;
-        }
-        setOpenKeys([keys[keys.length - 1]]);
-    };
-
-    // Effects - must be called before any conditional returns
-    useEffect(() => {
-        // update open keys when pathname changes (e.g. navigation)
-        setOpenKeys(getOpenKeys());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname]);
-
-    useEffect(() => {
-        setOpenKeys(getOpenKeys());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname, menuItems.length]);
+    // No longer need handleOpenChange or openKeys effects since menu is flat
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -513,8 +558,6 @@ export default function DashboardLayout({
                                 mode="inline"
                                 theme="dark"
                                 selectedKeys={getSelectedKey()}
-                                openKeys={openKeys}
-                                onOpenChange={handleOpenChange}
                                 items={antdMenuItems}
                                 onClick={() => {
                                     /* no-op on desktop */
@@ -559,8 +602,6 @@ export default function DashboardLayout({
                                 mode="inline"
                                 theme="dark"
                                 selectedKeys={getSelectedKey()}
-                                openKeys={openKeys}
-                                onOpenChange={handleOpenChange}
                                 items={antdMenuItems}
                                 onClick={() => setSidebarOpen(false)}
                             />
@@ -694,54 +735,58 @@ export default function DashboardLayout({
                                 ...getBreadcrumbItems(),
                                 ...(pageTitle
                                     ? [
-                                          {
-                                              title: (
-                                                  <span className="font-bold text-primary">
-                                                      {pageTitle}
-                                                  </span>
-                                              ),
-                                          },
-                                      ]
+                                        {
+                                            title: (
+                                                <span className="font-bold text-primary">
+                                                    {pageTitle}
+                                                </span>
+                                            ),
+                                        },
+                                    ]
                                     : []),
                             ]}
                         />
                     </div>
 
-                    {!isMobile && (
-                        <Dropdown
-                            menu={{ items: userMenuItems }}
-                            placement="bottomRight"
-                        >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    cursor: "pointer",
-                                }}
+                    <div className="flex items-center gap-3">
+                        <FeatureSearch />
+
+                        {!isMobile && (
+                            <Dropdown
+                                menu={{ items: userMenuItems }}
+                                placement="bottomRight"
                             >
-                                <Avatar
-                                    icon={<UserOutlined />}
+                                <div
                                     style={{
-                                        marginRight: 8,
-                                        backgroundColor: token.colorPrimary,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        cursor: "pointer",
                                     }}
-                                />
-                                <div className="flex flex-col">
-                                    <Text strong>
-                                        {" "}
-                                        {user?.displayName || user?.email}{" "}
-                                        {`(${RoleLabels[userRole as keyof typeof RoleLabels]})`}
-                                    </Text>
-                                    <Text
-                                        type="secondary"
-                                        style={{ fontSize: 12 }}
-                                    >
-                                        {user?.email}
-                                    </Text>
+                                >
+                                    <Avatar
+                                        icon={<UserOutlined />}
+                                        style={{
+                                            marginRight: 8,
+                                            backgroundColor: token.colorPrimary,
+                                        }}
+                                    />
+                                    <div className="flex flex-col">
+                                        <Text strong>
+                                            {" "}
+                                            {user?.displayName || user?.email}{" "}
+                                            {`(${RoleLabels[userRole as keyof typeof RoleLabels]})`}
+                                        </Text>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            {user?.email}
+                                        </Text>
+                                    </div>
                                 </div>
-                            </div>
-                        </Dropdown>
-                    )}
+                            </Dropdown>
+                        )}
+                    </div>
                 </Header>
 
                 <Content

@@ -85,7 +85,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 Object.entries(serviceData).filter(
                     ([_, value]) => value !== undefined,
                 ),
-            ) as Service;
+            ) as unknown as Service;
 
             const serviceRef = ref(database, `xoxo/services/${values.code}`);
 

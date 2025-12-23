@@ -32,6 +32,13 @@ export interface IMembers {
   position?: string; // Chức danh
   startDate?: string; // Ngày bắt đầu làm việc (YYYY-MM-DD)
   loginAccount?: string; // Tài khoản đăng nhập (user ID)
+  // Thông số tính lương
+  lateHours?: number; // Số giờ đi muộn
+  approvedLeaveDays?: number; // Ngày nghỉ có phép
+  unapprovedLeaveDays?: number; // Nghỉ không phép
+  totalFines?: number; // Tổng tiền phạt
+  totalRevenue?: number; // Tổng doanh số
+  totalCommission?: number; // Tổng thưởng hoa hồng
   createdAt?: number;
   updatedAt?: number;
 }

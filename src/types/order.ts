@@ -2,6 +2,7 @@ import { CustomerSource, DiscountType } from "@/types/enum";
 import { IMembers } from "@/types/members";
 import type { UploadFile } from "antd/es/upload/interface";
 import type { Dayjs } from "dayjs";
+import type { ProductProcessInstance, FirebaseProductProcessInstances } from "@/types/processInstance";
 export { DiscountType } from "@/types/enum";
 
 export enum OrderStatus {
@@ -72,6 +73,25 @@ export interface FirebaseWorkflowData {
   consultantId?: string;
   isDone: boolean;
   updatedAt: number;
+  note?: string;
+  isApproved?: boolean;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedAt?: number;
+  price?: number; // Giá công để tính doanh thu cho nhân sự
+  // New fields for process template support (optional for backward compatibility)
+  processTemplateId?: string;
+  stageId?: string;
+  checklist?: Array<{
+    id: string;
+    task_name: string;
+    task_order: number;
+    checked: boolean;
+    checked_by?: string;
+    checkedByName?: string;
+    checked_at?: number;
+    notes?: string;
+  }>;
 }
 
 export interface FirebaseProductData {
@@ -88,7 +108,15 @@ export interface FirebaseProductData {
     name: string;
     url: string;
   }>;
-  workflows: Record<string, FirebaseWorkflowData>;
+  // Legacy workflows (for backward compatibility)
+  workflows?: Record<string, FirebaseWorkflowData>;
+  // New process instances (replaces workflows)
+  processInstances?: FirebaseProductProcessInstances;
+  // Track process flow
+  currentProcessId?: string;
+  completedProcessIds?: string[];
+  // Process template sequence (defines which processes this product should go through)
+  processTemplateSequence?: string[]; // Array of process template IDs
 }
 
 
@@ -163,6 +191,14 @@ export interface FirebaseOrderData {
   caredByName?: string; // User name who marked as cared
   caredAt?: number; // Timestamp when marked as cared
   careCount?: number; // Number of times this order has been cared for
+  careStatus?: string; // Latest care status
+  careNotes?: Array<{
+    status: string; // Care status
+    note: string; // Care note
+    caredBy: string; // User ID
+    caredByName: string; // User name
+    caredAt: number; // Timestamp
+  }>; // History of care notes
 }
 
 // Form related interfaces

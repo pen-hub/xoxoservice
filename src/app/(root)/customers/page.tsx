@@ -12,19 +12,79 @@ import type {
     FirebaseCustomers,
     Province,
 } from "@/types/customer";
-import { CustomerSource, CustomerSourceOptions } from "@/types/enum";
+import { CustomerSource, CustomerSourceOptions, LeadStatus, LeadStatusLabels, LeadStatusOptions } from "@/types/enum";
 import {
     getCustomerTypeLabel,
     getSourceColor,
     getSourceLabel,
 } from "@/utils/customerUtils";
-import { PlusOutlined, UserOutlined } from "@ant-design/icons";
-import { App, Tag, Typography } from "antd";
+import { PlusOutlined, UserOutlined, MessageOutlined, CopyOutlined } from "@ant-design/icons";
+import { App, Tag, Typography, Button, Tooltip, Space } from "antd";
 import { getDatabase, onValue, ref, remove } from "firebase/database";
 import { Mail, MapPin, Phone } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { MemberService } from "@/services/memberService";
+import { IMembers } from "@/types/members";
+import dayjs from "dayjs";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
+import { getDatePresets, getDateRangeByPreset } from "@/utils/datePresets";
 
 const { Text } = Typography;
+
+// Helper function to check if today is a reminder day (1, 3, 5, 7 days after createdAt)
+const getReminderInfo = (createdAt: number, status?: LeadStatus) => {
+    if (status !== LeadStatus.Considering || !createdAt) {
+        return null;
+    }
+
+    const createdDate = dayjs(createdAt);
+    const today = dayjs();
+    const daysDiff = today.diff(createdDate, "day");
+
+    // Check if today is one of the reminder days (1, 3, 5, 7)
+    const reminderDays = [1, 3, 5, 7];
+    const isReminderDay = reminderDays.includes(daysDiff);
+
+    // Generate auto message based on day
+    let autoMessage = "";
+    if (isReminderDay) {
+        autoMessage = `Xin chào! Đây là tin nhắn nhắc nhở từ chúng tôi sau ${daysDiff} ngày. Chúng tôi rất mong được hỗ trợ bạn. Vui lòng liên hệ với chúng tôi nếu bạn có bất kỳ câu hỏi nào.`;
+    } else {
+        // Calculate next reminder day
+        const nextReminderDay = reminderDays.find(day => day > daysDiff) || reminderDays[reminderDays.length - 1];
+        const daysUntilNext = nextReminderDay - daysDiff;
+        autoMessage = `Tin nhắn nhắc nhở sẽ được gửi sau ${daysUntilNext} ngày nữa (ngày thứ ${nextReminderDay}).`;
+    }
+
+    if (isReminderDay) {
+        return {
+            isReminder: true,
+            day: daysDiff,
+            message: `Nhắc khách - Ngày thứ ${daysDiff}`,
+            autoMessage: autoMessage,
+        };
+    }
+
+    // Check if overdue (past reminder days)
+    const maxReminderDay = Math.max(...reminderDays);
+    if (daysDiff > maxReminderDay) {
+        return {
+            isReminder: true,
+            day: daysDiff,
+            message: `Quá hạn nhắc - ${daysDiff} ngày`,
+            isOverdue: true,
+            autoMessage: `Xin chào! Đã qua ${daysDiff} ngày kể từ lần liên hệ cuối. Chúng tôi rất mong được hỗ trợ bạn. Vui lòng liên hệ với chúng tôi nếu bạn có bất kỳ câu hỏi nào.`,
+        };
+    }
+
+    // Return info even if not a reminder day (to show upcoming reminder)
+    return {
+        isReminder: false,
+        day: daysDiff,
+        message: `Chưa đến ngày nhắc (${daysDiff} ngày)`,
+        autoMessage: autoMessage,
+    };
+};
 
 export default function CustomersPage() {
     const [customers, setCustomers] = useState<FirebaseCustomers>({});
@@ -42,6 +102,9 @@ export default function CustomersPage() {
 
     // Location state
     const [provinces, setProvinces] = useState<Province[]>([]);
+
+    // Members state for Sale/MKT selection
+    const [members, setMembers] = useState<IMembers[]>([]);
 
     // Load customers from Firebase
     useEffect(() => {
@@ -119,6 +182,14 @@ export default function CustomersPage() {
         loadProvinces();
     }, [message]);
 
+    // Load members for Sale/MKT selection
+    useEffect(() => {
+        const unsubscribe = MemberService.onSnapshot((data) => {
+            setMembers(data);
+        });
+        return () => unsubscribe();
+    }, []);
+
     const handleOpenModal = (customerCode?: string) => {
         if (customerCode) {
             const customer = customers[customerCode];
@@ -180,6 +251,54 @@ export default function CustomersPage() {
         key: code,
     }));
 
+    // Apply custom filters
+    const filteredData = useMemo(() => {
+        let filtered = dataSource;
+
+        // Filter by salePerson
+        if (query.salePerson && query.salePerson !== "") {
+            filtered = filtered.filter(
+                (customer) => customer.salePerson === query.salePerson,
+            );
+        }
+
+        // Filter by mktPerson
+        if (query.mktPerson && query.mktPerson !== "") {
+            filtered = filtered.filter(
+                (customer) => customer.mktPerson === query.mktPerson,
+            );
+        }
+
+        // Filter by pageManager (search in string)
+        if (query.pageManager && query.pageManager !== "") {
+            const searchTerm = (query.pageManager as string).toLowerCase();
+            filtered = filtered.filter(
+                (customer) =>
+                    customer.pageManager
+                        ?.toLowerCase()
+                        .includes(searchTerm),
+            );
+        }
+
+        // Apply date preset filter if selected
+        if (query.datePreset) {
+            const dateRange = getDateRangeByPreset(query.datePreset as string);
+            if (dateRange) {
+                filtered = filtered.filter((customer) => {
+                    if (!customer.createdAt) return false;
+                    const customerDate = new Date(customer.createdAt);
+                    return (
+                        customerDate >= dateRange.from &&
+                        customerDate <= dateRange.to
+                    );
+                });
+            }
+        }
+
+        // Apply other filters from useFilter (customerSource, status, search, etc.)
+        return applyFilter(filtered);
+    }, [dataSource, query, applyFilter]);
+
     const columns = [
         {
             title: "Mã KH",
@@ -187,11 +306,25 @@ export default function CustomersPage() {
             key: "code",
             width: 150,
             fixed: "left" as const,
-            render: (code: string) => (
-                <Text strong className="text-primary">
-                    {code}
-                </Text>
-            ),
+            render: (code: string, record: Customer) => {
+                const reminderInfo = record?.createdAt
+                    ? getReminderInfo(record.createdAt, record.status)
+                    : null;
+                
+                return (
+                    <div className="flex items-center gap-2">
+                        <Text strong className="text-primary">
+                            {code}
+                        </Text>
+                        {reminderInfo && (
+                            <ExclamationCircleOutlined 
+                                className="text-red-500 animate-pulse" 
+                                style={{ fontSize: '16px' }}
+                            />
+                        )}
+                    </div>
+                );
+            },
         },
         {
             title: "Tên khách hàng",
@@ -291,6 +424,90 @@ export default function CustomersPage() {
             ),
         },
         {
+            title: "Sale phụ trách",
+            dataIndex: "salePerson",
+            key: "salePerson",
+            width: 150,
+            render: (salePersonId?: string) => {
+                if (!salePersonId) return <Text type="secondary">-</Text>;
+                const member = members.find((m) => m.id === salePersonId);
+                return member ? (
+                    <Text>{member.name}</Text>
+                ) : (
+                    <Text type="secondary">{salePersonId}</Text>
+                );
+            },
+        },
+        {
+            title: "MKT phụ trách",
+            dataIndex: "mktPerson",
+            key: "mktPerson",
+            width: 150,
+            render: (mktPersonId?: string) => {
+                if (!mktPersonId) return <Text type="secondary">-</Text>;
+                const member = members.find((m) => m.id === mktPersonId);
+                return member ? (
+                    <Text>{member.name}</Text>
+                ) : (
+                    <Text type="secondary">{mktPersonId}</Text>
+                );
+            },
+        },
+        {
+            title: "Trực page",
+            dataIndex: "pageManager",
+            key: "pageManager",
+            width: 150,
+            render: (pageManager?: string) => (
+                <Text>{pageManager || "-"}</Text>
+            ),
+        },
+        {
+            title: "Trạng thái",
+            dataIndex: "status",
+            key: "status",
+            width: 180,
+            filters: LeadStatusOptions.map((opt) => ({
+                text: opt.label,
+                value: opt.value,
+            })),
+            onFilter: (value: any, record: Customer) =>
+                record.status === value,
+            render: (status?: LeadStatus, record?: Customer) => {
+                if (!status) return <Text type="secondary">-</Text>;
+                
+                const reminderInfo = record?.createdAt
+                    ? getReminderInfo(record.createdAt, status)
+                    : null;
+
+                const colorMap: Record<LeadStatus, string> = {
+                    [LeadStatus.Considering]: "blue",
+                    [LeadStatus.WaitingForPhotos]: "orange",
+                    [LeadStatus.WaitingForVisit]: "cyan",
+                    [LeadStatus.WaitingForItems]: "purple",
+                    [LeadStatus.NotInterested]: "red",
+                    [LeadStatus.Cancel]: "default",
+                };
+
+                return (
+                    <div className="flex items-center gap-2">
+                        <Tag color={colorMap[status]}>
+                            {LeadStatusLabels[status]}
+                        </Tag>
+                        {reminderInfo && (
+                            <Tag
+                                color="red"
+                                icon={<ExclamationCircleOutlined />}
+                                className="animate-pulse"
+                            >
+                                {reminderInfo.message}
+                            </Tag>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
             title: "Ngày tạo",
             dataIndex: "createdAt",
             key: "createdAt",
@@ -302,18 +519,100 @@ export default function CustomersPage() {
                 </Text>
             ),
         },
+        {
+            title: "Tin nhắn tự động",
+            key: "autoMessage",
+            width: 120,
+            fixed: "right" as const,
+            render: (_: unknown, record: Customer) => {
+                const reminderInfo = record?.createdAt && record?.status === LeadStatus.Considering
+                    ? getReminderInfo(record.createdAt, record.status)
+                    : null;
+
+                if (!reminderInfo || !reminderInfo.autoMessage) {
+                    return <Text type="secondary">-</Text>;
+                }
+
+                return (
+                    <Button
+                        size="small"
+                        type="link"
+                        icon={<CopyOutlined />}
+                        onClick={() => {
+                            navigator.clipboard.writeText(reminderInfo.autoMessage || "");
+                            message.success("Đã sao chép tin nhắn!");
+                        }}
+                    >
+                        Sao chép
+                    </Button>
+                );
+            },
+        },
     ];
 
-    // Filter data
-    const filteredData = applyFilter(dataSource);
+    // Date presets for quick filter
+    const datePresets = getDatePresets();
+    const datePresetOptions = datePresets.map((preset) => ({
+        label: preset.label,
+        value: preset.value,
+    }));
 
     // Filter fields for WrapperContent
     const filterFields: FilterField[] = [
+        {
+            name: "datePreset",
+            label: "Lọc nhanh theo ngày",
+            type: "select",
+            options: datePresetOptions,
+            placeholder: "Chọn khoảng thời gian",
+        },
         {
             name: "customerSource",
             label: "Nguồn khách hàng",
             type: "select",
             options: CustomerSourceOptions,
+        },
+        {
+            name: "status",
+            label: "Trạng thái",
+            type: "select",
+            options: LeadStatusOptions,
+        },
+        {
+            name: "salePerson",
+            label: "Sale phụ trách",
+            type: "select",
+            options: [
+                { label: "Tất cả", value: "" },
+                ...members
+                    .filter((m) => m.role === "sales" || m.isActive !== false)
+                    .map((member) => ({
+                        label: member.name,
+                        value: member.id,
+                    })),
+            ],
+            placeholder: "Chọn Sale phụ trách",
+        },
+        {
+            name: "mktPerson",
+            label: "MKT phụ trách",
+            type: "select",
+            options: [
+                { label: "Tất cả", value: "" },
+                ...members
+                    .filter((m) => m.isActive !== false)
+                    .map((member) => ({
+                        label: member.name,
+                        value: member.id,
+                    })),
+            ],
+            placeholder: "Chọn MKT phụ trách",
+        },
+        {
+            name: "pageManager",
+            label: "Trực page",
+            type: "input",
+            placeholder: "Nhập tên người trực page",
         },
     ];
 
@@ -332,12 +631,14 @@ export default function CustomersPage() {
                 onDelete={handleDeleteWithClose}
                 provinces={provinces}
                 customerGroups={customerGroups}
+                members={members}
             />
         );
     };
 
     return (
         <WrapperContent
+            title="Lead Khách hàng"
             header={{
                 searchInput: {
                     placeholder: "Tìm kiếm theo tên, SĐT, email...",
@@ -347,16 +648,32 @@ export default function CustomersPage() {
                     fields: filterFields,
                     query: query,
                     onApplyFilter: (filters) => {
-                        filters.forEach(({ key, value }) =>
-                            updateQuery(key, value),
-                        );
+                        filters.forEach(({ key, value }) => {
+                            if (key === "datePreset" && value) {
+                                // Convert date preset to date range for createdAt
+                                const dateRange = getDateRangeByPreset(value as string);
+                                if (dateRange) {
+                                    updateQuery("createdAt", {
+                                        from: dateRange.from,
+                                        to: dateRange.to,
+                                    });
+                                }
+                                // Keep datePreset in query for display
+                                updateQuery("datePreset", value);
+                            } else {
+                                updateQuery(key, value);
+                            }
+                        });
                     },
-                    onReset: reset,
+                    onReset: () => {
+                        reset();
+                        updateQuery("datePreset", undefined);
+                    },
                 },
                 buttonEnds: [
                     {
                         can: true,
-                        name: "Thêm khách hàng",
+                        name: "Thêm Lead Khách hàng",
                         icon: <PlusOutlined />,
                         type: "primary",
                         onClick: () => handleOpenModal(),
@@ -377,6 +694,7 @@ export default function CustomersPage() {
                 editingCustomer={editingCustomer}
                 customerGroups={customerGroups}
                 provinces={provinces}
+                members={members}
                 onCancel={handleCloseModal}
                 onSuccess={handleModalSuccess}
             />

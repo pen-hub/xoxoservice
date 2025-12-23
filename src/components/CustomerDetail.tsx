@@ -3,6 +3,8 @@
 import ButtonCall from "@/components/ButtonCall";
 import { PropRowDetails } from "@/components/CommonTable";
 import type { Customer, CustomerGroup, Province } from "@/types/customer";
+import { IMembers } from "@/types/members";
+import { LeadStatus, LeadStatusLabels } from "@/types/enum";
 import {
     getCustomerTypeLabel,
     getGenderLabel,
@@ -18,6 +20,7 @@ interface CustomerDetailProps extends PropRowDetails<Customer> {
     onDelete: (customerCode: string, onCloseDrawer?: () => void) => void;
     provinces?: Province[];
     customerGroups?: Record<string, CustomerGroup>;
+    members?: IMembers[];
 }
 
 const CustomerDetail: React.FC<CustomerDetailProps> = ({
@@ -27,6 +30,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
     onDelete,
     provinces = [],
     customerGroups = {},
+    members = [],
 }) => {
     if (!data) return null;
 
@@ -145,6 +149,48 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
                 </Descriptions.Item>
                 <Descriptions.Item label="Facebook">
                     {data.facebook || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Sale phụ trách">
+                    {data.salePerson ? (
+                        members.find((m) => m.id === data.salePerson)?.name ||
+                        data.salePerson
+                    ) : (
+                        "-"
+                    )}
+                </Descriptions.Item>
+                <Descriptions.Item label="MKT phụ trách">
+                    {data.mktPerson ? (
+                        members.find((m) => m.id === data.mktPerson)?.name ||
+                        data.mktPerson
+                    ) : (
+                        "-"
+                    )}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trực page">
+                    {data.pageManager || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                    {data.status ? (
+                        <Tag
+                            color={
+                                data.status === LeadStatus.Considering
+                                    ? "blue"
+                                    : data.status === LeadStatus.WaitingForPhotos
+                                      ? "orange"
+                                      : data.status === LeadStatus.WaitingForVisit
+                                        ? "cyan"
+                                        : data.status === LeadStatus.WaitingForItems
+                                          ? "purple"
+                                          : data.status === LeadStatus.NotInterested
+                                            ? "red"
+                                            : "default"
+                            }
+                        >
+                            {LeadStatusLabels[data.status]}
+                        </Tag>
+                    ) : (
+                        "-"
+                    )}
                 </Descriptions.Item>
                 <Descriptions.Item label="Ghi chú">
                     {data.notes || "-"}

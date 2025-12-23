@@ -5,12 +5,14 @@ import RichTextEditor from "@/components/RichTextEditor";
 import WrapperContent from "@/components/WrapperContent";
 import useColumn from "@/hooks/useColumn";
 import { useFileExport } from "@/hooks/useFileExport";
+import { useRealtimeList } from "@/firebase/hooks/useRealtimeList";
 import useFilter from "@/hooks/useFilter";
 import { DepartmentService, IDepartment } from "@/services/departmentService";
 import { MemberService } from "@/services/memberService";
 import { SalaryService } from "@/services/salaryService";
 import { RoleLabels, ROLES, RolesOptions } from "@/types/enum";
 import { IMembers } from "@/types/members";
+import { FirebaseOrderData, OrderStatus } from "@/types/order";
 import {
     CommissionRule,
     ExtendedSalaryConfig,
@@ -37,11 +39,14 @@ import {
     Card,
     Col,
     DatePicker,
+    Descriptions,
+    Drawer,
     Form,
     Input,
     InputNumber,
     Modal,
     Popconfirm,
+    Progress,
     Radio,
     Row,
     Select,
@@ -49,14 +54,23 @@ import {
     Switch,
     Table,
     Tabs,
+    Tag,
     Tooltip,
     Typography,
     Upload,
+    Statistic,
 } from "antd";
+import {
+    PieChart,
+    Pie,
+    Cell,
+    ResponsiveContainer,
+    Tooltip as RechartsTooltip,
+} from "recharts";
 import type { RcFile, UploadFile } from "antd/es/upload";
 import dayjs from "dayjs";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Option } = Select;
 
@@ -66,6 +80,8 @@ const MemberDetails: React.FC<PropRowDetails<IMembers>> = ({
     onClose,
 }) => {
     const [departments, setDepartments] = useState<IDepartment[]>([]);
+    const [salaryInfo, setSalaryInfo] = useState<any>(null);
+    const [loadingSalary, setLoadingSalary] = useState(false);
 
     useEffect(() => {
         const unsubscribe = DepartmentService.onSnapshot((data) => {
@@ -76,6 +92,23 @@ const MemberDetails: React.FC<PropRowDetails<IMembers>> = ({
             unsubscribe();
         };
     }, []);
+
+    // Load salary information
+    useEffect(() => {
+        if (data?.id) {
+            setLoadingSalary(true);
+            SalaryService.getSalaryByMemberId(data.id)
+                .then((salary) => {
+                    setSalaryInfo(salary);
+                })
+                .catch((error) => {
+                    console.error("Error loading salary:", error);
+                })
+                .finally(() => {
+                    setLoadingSalary(false);
+                });
+        }
+    }, [data?.id]);
 
     if (!data) return null;
 
@@ -89,63 +122,140 @@ const MemberDetails: React.FC<PropRowDetails<IMembers>> = ({
             .join(", ");
     };
 
+    const getSalaryTypeLabel = (type?: SalaryType) => {
+        if (!type) return "-";
+        const labels: Record<SalaryType, string> = {
+            [SalaryType.FIXED]: "Lương cơ bản",
+            [SalaryType.BY_SHIFT]: "Lương theo ca",
+            [SalaryType.BY_HOUR]: "Lương theo giờ",
+            [SalaryType.BY_DAY]: "Theo ngày công chuẩn",
+            [SalaryType.KPI_BONUS]: "Thưởng KPI",
+        };
+        return labels[type] || type;
+    };
+
+    const formatCurrency = (value?: number) => {
+        if (!value && value !== 0) return "-";
+        return new Intl.NumberFormat("vi-VN", {
+            style: "currency",
+            currency: "VND",
+        }).format(value);
+    };
+
     return (
-        <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-semibold mb-4">
-                    Thông tin nhân viên
-                </h3>
-                <div className="grid grid-cols-1 gap-3">
-                    <div>
-                        <span className="font-medium">Họ tên:</span>
-                        <p className="text-gray-600">{data.name}</p>
-                    </div>
-                    <div>
-                        <span className="font-medium">Số điện thoại:</span>
-                        <p className="text-gray-600">{data.phone}</p>
-                    </div>
-                    <div>
-                        <span className="font-medium">Email:</span>
-                        <p className="text-gray-600">{data.email}</p>
-                    </div>
-                    <div>
-                        <span className="font-medium">Chức vụ:</span>
-                        <p className="text-gray-600">
+        <div className="space-y-6">
+            {/* Thông tin nhân viên */}
+            <Card title="Thông tin nhân viên" size="small">
+                <Descriptions bordered column={1} size="small">
+                    <Descriptions.Item label="Mã nhân viên">
+                        <Typography.Text strong className="text-primary">
+                            {data.code}
+                        </Typography.Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Họ tên">
+                        <Typography.Text strong>{data.name}</Typography.Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Số điện thoại">
+                        {data.phone || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Email">
+                        {data.email || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Chức vụ">
+                        <Tag color="blue">
                             {RoleLabels[data.role] || data.role}
-                        </p>
-                    </div>
+                        </Tag>
+                    </Descriptions.Item>
                     {data.role === ROLES.worker && (
-                        <div>
-                            <span className="font-medium">Phòng ban:</span>
-                            <p className="text-gray-600">
-                                {getDepartmentNames(data.departments)}
-                            </p>
-                        </div>
+                        <Descriptions.Item label="Phòng ban">
+                            {getDepartmentNames(data.departments)}
+                        </Descriptions.Item>
                     )}
-                    <div>
-                        <span className="font-medium">Ngày sinh:</span>
-                        <p className="text-gray-600">
-                            {dayjs(data.date_of_birth).format("DD/MM/YYYY")}
-                        </p>
-                    </div>
-                    <div>
-                        <span className="font-medium">Trạng thái:</span>
-                        <p className="text-gray-600">
-                            <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    data.isActive
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-red-100 text-red-800"
-                                }`}
-                            >
-                                {data.isActive !== false
-                                    ? "Hoạt động"
-                                    : "Ngừng hoạt động"}
-                            </span>
-                        </p>
-                    </div>
-                </div>
-            </div>
+                    <Descriptions.Item label="Ngày sinh">
+                        {data.date_of_birth
+                            ? dayjs(data.date_of_birth).format("DD/MM/YYYY")
+                            : "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Trạng thái">
+                        <Tag
+                            color={data.isActive !== false ? "green" : "red"}
+                        >
+                            {data.isActive !== false
+                                ? "Hoạt động"
+                                : "Ngừng hoạt động"}
+                        </Tag>
+                    </Descriptions.Item>
+                </Descriptions>
+            </Card>
+
+            {/* Thông số tính lương */}
+            <Card title="Thông số tính lương" size="small">
+                <Descriptions bordered column={1} size="small">
+                    <Descriptions.Item label="Loại lương">
+                        {getSalaryTypeLabel(data.salaryType) !== "-" ? (
+                            <Tag color="cyan">
+                                {getSalaryTypeLabel(data.salaryType)}
+                            </Tag>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Số giờ đi muộn">
+                        {data.lateHours !== undefined ? (
+                            <Typography.Text>
+                                {data.lateHours} giờ
+                            </Typography.Text>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Ngày nghỉ có phép">
+                        {data.approvedLeaveDays !== undefined ? (
+                            <Typography.Text>
+                                {data.approvedLeaveDays} ngày
+                            </Typography.Text>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Nghỉ không phép">
+                        {data.unapprovedLeaveDays !== undefined ? (
+                            <Typography.Text>
+                                {data.unapprovedLeaveDays} ngày
+                            </Typography.Text>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Tổng tiền phạt">
+                        {data.totalFines !== undefined ? (
+                            <Typography.Text strong className="text-red-600">
+                                {formatCurrency(data.totalFines)}
+                            </Typography.Text>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Tổng doanh số">
+                        {data.totalRevenue !== undefined ? (
+                            <Typography.Text strong className="text-green-600">
+                                {formatCurrency(data.totalRevenue)}
+                            </Typography.Text>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Tổng thưởng hoa hồng">
+                        {data.totalCommission !== undefined ? (
+                            <Typography.Text strong className="text-blue-600">
+                                {formatCurrency(data.totalCommission)}
+                            </Typography.Text>
+                        ) : (
+                            <Typography.Text type="secondary">-</Typography.Text>
+                        )}
+                    </Descriptions.Item>
+                </Descriptions>
+            </Card>
         </div>
     );
 };
@@ -196,12 +306,15 @@ const SalarySetupTab: React.FC<{
         return () => unsubscribe();
     }, []);
 
-    // Load existing salary config when memberId changes
+    // Load existing salary config and member data when memberId changes
     useEffect(() => {
         if (memberId) {
             setLoadingSalary(true);
-            SalaryService.getSalaryByMemberId(memberId)
-                .then((salary) => {
+            Promise.all([
+                SalaryService.getSalaryByMemberId(memberId),
+                MemberService.getById(memberId),
+            ])
+                .then(([salary, member]) => {
                     if (salary) {
                         salaryForm.setFieldsValue({
                             salaryType: salary.salaryType,
@@ -219,6 +332,13 @@ const SalarySetupTab: React.FC<{
                             enableDeduction:
                                 (salary as ExtendedSalaryConfig)
                                     .enableDeduction || false,
+                            // Load thông số từ member
+                            lateHours: member?.lateHours ?? 0,
+                            approvedLeaveDays: member?.approvedLeaveDays ?? 0,
+                            unapprovedLeaveDays: member?.unapprovedLeaveDays ?? 0,
+                            totalFines: member?.totalFines ?? 0,
+                            totalRevenue: member?.totalRevenue ?? 0,
+                            totalCommission: member?.totalCommission ?? 0,
                         });
                         setSelectedTemplateId(salary.salaryTemplateId || null);
                         setEnableRevenueBonus(
@@ -249,6 +369,12 @@ const SalarySetupTab: React.FC<{
                             enableCommission: false,
                             enableAllowance: false,
                             enableDeduction: false,
+                            lateHours: member?.lateHours ?? 0,
+                            approvedLeaveDays: member?.approvedLeaveDays ?? 0,
+                            unapprovedLeaveDays: member?.unapprovedLeaveDays ?? 0,
+                            totalFines: member?.totalFines ?? 0,
+                            totalRevenue: member?.totalRevenue ?? 0,
+                            totalCommission: member?.totalCommission ?? 0,
                         });
                         setSelectedTemplateId(null);
                         setEnableRevenueBonus(false);
@@ -273,6 +399,12 @@ const SalarySetupTab: React.FC<{
                 enableCommission: false,
                 enableAllowance: false,
                 enableDeduction: false,
+                lateHours: 0,
+                approvedLeaveDays: 0,
+                unapprovedLeaveDays: 0,
+                totalFines: 0,
+                totalRevenue: 0,
+                totalCommission: 0,
             });
             setSelectedTemplateId(null);
             setEnableRevenueBonus(false);
@@ -283,7 +415,7 @@ const SalarySetupTab: React.FC<{
         }
     }, [memberId, salaryForm]);
 
-    const handleTemplateChange = (templateId: string | null) => {
+    const handleTemplateChange = useCallback((templateId: string | null) => {
         setSelectedTemplateId(templateId);
         if (!templateId) {
             // Clear template selection - enable fields
@@ -299,13 +431,13 @@ const SalarySetupTab: React.FC<{
                 salaryTemplateId: templateId,
             });
         }
-    };
+    }, [templates, salaryForm]);
 
     const salaryTypeOptions = [
-        { label: "Cố định", value: SalaryType.FIXED },
-        { label: "Theo ca làm việc", value: SalaryType.BY_SHIFT },
-        { label: "Theo giờ làm việc", value: SalaryType.BY_HOUR },
-        { label: "Theo ngày công chuẩn", value: SalaryType.BY_DAY },
+        { label: "Lương cơ bản", value: SalaryType.FIXED },
+        { label: "Lương theo giờ", value: SalaryType.BY_HOUR },
+        { label: "Lương theo ca", value: SalaryType.BY_SHIFT },
+        { label: "Thưởng KPI", value: SalaryType.KPI_BONUS },
     ];
 
     const getSalaryAmountLabel = (type: SalaryType) => {
@@ -318,6 +450,8 @@ const SalarySetupTab: React.FC<{
                 return "Mức lương (VNĐ/giờ)";
             case SalaryType.BY_DAY:
                 return "Mức lương (VNĐ/ngày)";
+            case SalaryType.KPI_BONUS:
+                return "Mức thưởng KPI (VNĐ)";
             default:
                 return "Mức lương";
         }
@@ -333,6 +467,8 @@ const SalarySetupTab: React.FC<{
                 return "Lương = số giờ làm × mức lương/giờ (cần nhập số giờ để tính lương thực tế)";
             case SalaryType.BY_DAY:
                 return "Lương = số ngày làm × mức lương/ngày (cần nhập số ngày để tính lương thực tế)";
+            case SalaryType.KPI_BONUS:
+                return "Thưởng KPI dựa trên hiệu suất làm việc và đạt mục tiêu";
             default:
                 return "";
         }
@@ -358,25 +494,25 @@ const SalarySetupTab: React.FC<{
         }
     };
 
-    const handleAddCommission = () => {
+    const handleAddCommission = useCallback(() => {
         setEditingCommissionRule(null);
         commissionForm.resetFields();
         setIsCommissionModalOpen(true);
-    };
+    }, [commissionForm]);
 
-    const handleEditCommission = (rule: CommissionRule) => {
+    const handleEditCommission = useCallback((rule: CommissionRule) => {
         setEditingCommissionRule(rule);
         commissionForm.setFieldsValue(rule);
         setIsCommissionModalOpen(true);
-    };
+    }, [commissionForm]);
 
-    const handleDeleteCommission = (id: string) => {
+    const handleDeleteCommission = useCallback((id: string) => {
         const newRules = commissionRules.filter((r) => r.id !== id);
         setCommissionRules(newRules);
         onCommissionRulesChange?.(newRules);
-    };
+    }, [commissionRules, onCommissionRulesChange]);
 
-    const handleSaveCommission = () => {
+    const handleSaveCommission = useCallback(() => {
         commissionForm.validateFields().then((values) => {
             let newRules: CommissionRule[];
             if (editingCommissionRule) {
@@ -400,9 +536,17 @@ const SalarySetupTab: React.FC<{
             commissionForm.resetFields();
             setEditingCommissionRule(null);
         });
-    };
+    }, [commissionForm, editingCommissionRule, commissionRules, onCommissionRulesChange]);
 
-    const commissionColumns: TableColumnsType<CommissionRule> = [
+    const handleEditCommissionClick = useCallback((record: CommissionRule) => () => {
+        handleEditCommission(record);
+    }, [handleEditCommission]);
+
+    const handleDeleteCommissionClick = useCallback((id: string) => () => {
+        handleDeleteCommission(id);
+    }, [handleDeleteCommission]);
+
+    const commissionColumns: TableColumnsType<CommissionRule> = useMemo(() => [
         {
             title: "Loại hình",
             dataIndex: "type",
@@ -456,19 +600,19 @@ const SalarySetupTab: React.FC<{
                         type="text"
                         size="small"
                         icon={<EditOutlined />}
-                        onClick={() => handleEditCommission(record)}
+                        onClick={handleEditCommissionClick(record)}
                     />
                     <Button
                         type="text"
                         size="small"
                         danger
                         icon={<DeleteOutlined />}
-                        onClick={() => handleDeleteCommission(record.id)}
+                        onClick={handleDeleteCommissionClick(record.id)}
                     />
                 </Space>
             ),
         },
-    ];
+    ], [handleEditCommissionClick, handleDeleteCommissionClick]);
 
     return (
         <Form
@@ -530,6 +674,172 @@ const SalarySetupTab: React.FC<{
                         value={selectedTemplateId}
                     />
                 </Form.Item>
+            </Card>
+
+            {/* Section 1.5: Thông số tính lương */}
+            <Card
+                title={<Typography.Text strong>Thông số tính lương</Typography.Text>}
+                className="border border-gray-200"
+            >
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item
+                            label="Số giờ đi muộn"
+                            name="lateHours"
+                            rules={[
+                                {
+                                    type: "number",
+                                    min: 0,
+                                    message: "Số giờ đi muộn phải lớn hơn hoặc bằng 0!",
+                                },
+                            ]}
+                            initialValue={0}
+                        >
+                            <InputNumber
+                                placeholder="Nhập số giờ đi muộn"
+                                style={{ width: "100%" }}
+                                min={0}
+                                addonAfter="giờ"
+                            />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item
+                            label="Ngày nghỉ có phép"
+                            name="approvedLeaveDays"
+                            rules={[
+                                {
+                                    type: "number",
+                                    min: 0,
+                                    message: "Ngày nghỉ có phép phải lớn hơn hoặc bằng 0!",
+                                },
+                            ]}
+                            initialValue={0}
+                        >
+                            <InputNumber
+                                placeholder="Nhập số ngày nghỉ có phép"
+                                style={{ width: "100%" }}
+                                min={0}
+                                addonAfter="ngày"
+                            />
+                        </Form.Item>
+                    </Col>
+                </Row>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item
+                            label="Nghỉ không phép"
+                            name="unapprovedLeaveDays"
+                            rules={[
+                                {
+                                    type: "number",
+                                    min: 0,
+                                    message: "Nghỉ không phép phải lớn hơn hoặc bằng 0!",
+                                },
+                            ]}
+                            initialValue={0}
+                        >
+                            <InputNumber
+                                placeholder="Nhập số ngày nghỉ không phép"
+                                style={{ width: "100%" }}
+                                min={0}
+                                addonAfter="ngày"
+                            />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item
+                            label="Tổng tiền phạt"
+                            name="totalFines"
+                            rules={[
+                                {
+                                    type: "number",
+                                    min: 0,
+                                    message: "Tổng tiền phạt phải lớn hơn hoặc bằng 0!",
+                                },
+                            ]}
+                            initialValue={0}
+                        >
+                            <InputNumber
+                                placeholder="Nhập tổng tiền phạt"
+                                style={{ width: "100%" }}
+                                min={0}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ",",
+                                    )
+                                }
+                                parser={(value) =>
+                                    Number(value?.replace(/,/g, "") || 0) as any
+                                }
+                                addonAfter="VNĐ"
+                            />
+                        </Form.Item>
+                    </Col>
+                </Row>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item
+                            label="Tổng doanh số"
+                            name="totalRevenue"
+                            rules={[
+                                {
+                                    type: "number",
+                                    min: 0,
+                                    message: "Tổng doanh số phải lớn hơn hoặc bằng 0!",
+                                },
+                            ]}
+                            initialValue={0}
+                        >
+                            <InputNumber
+                                placeholder="Nhập tổng doanh số"
+                                style={{ width: "100%" }}
+                                min={0}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ",",
+                                    )
+                                }
+                                parser={(value) =>
+                                    Number(value?.replace(/,/g, "") || 0) as any
+                                }
+                                addonAfter="VNĐ"
+                            />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item
+                            label="Tổng thưởng hoa hồng"
+                            name="totalCommission"
+                            rules={[
+                                {
+                                    type: "number",
+                                    min: 0,
+                                    message: "Tổng thưởng hoa hồng phải lớn hơn hoặc bằng 0!",
+                                },
+                            ]}
+                            initialValue={0}
+                        >
+                            <InputNumber
+                                placeholder="Nhập tổng thưởng hoa hồng"
+                                style={{ width: "100%" }}
+                                min={0}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ",",
+                                    )
+                                }
+                                parser={(value) =>
+                                    Number(value?.replace(/,/g, "") || 0) as any
+                                }
+                                addonAfter="VNĐ"
+                            />
+                        </Form.Item>
+                    </Col>
+                </Row>
             </Card>
 
             {/* Section 2: Thưởng */}
@@ -951,6 +1261,16 @@ const MemberForm: React.FC<MemberFormProps> = ({
 
             // Save salary config to Firebase (in members collection)
             await SalaryService.setSalary(member.id, salaryData);
+
+            // Save thông số tính lương vào member data
+            await MemberService.update(member.id, {
+                lateHours: salaryValues.lateHours ?? 0,
+                approvedLeaveDays: salaryValues.approvedLeaveDays ?? 0,
+                unapprovedLeaveDays: salaryValues.unapprovedLeaveDays ?? 0,
+                totalFines: salaryValues.totalFines ?? 0,
+                totalRevenue: salaryValues.totalRevenue ?? 0,
+                totalCommission: salaryValues.totalCommission ?? 0,
+            });
 
             // Save as template if requested
             if (saveAsTemplate) {
@@ -1634,6 +1954,359 @@ const MemberForm: React.FC<MemberFormProps> = ({
 };
 
 // Main Members Page Component
+interface MemberOrdersOverviewProps {
+    member: IMembers;
+    orders: any[];
+}
+
+const MemberOrdersOverview: React.FC<MemberOrdersOverviewProps> = ({
+    member,
+    orders,
+}) => {
+    const statusConfig: Record<
+        string,
+        { label: string; color: string }
+    > = {
+        [OrderStatus.PENDING]: {
+            label: "Chờ xử lý",
+            color: "default",
+        },
+        [OrderStatus.CONFIRMED]: {
+            label: "Đã xác nhận",
+            color: "warning",
+        },
+        [OrderStatus.IN_PROGRESS]: {
+            label: "Đang thực hiện",
+            color: "processing",
+        },
+        [OrderStatus.ON_HOLD]: {
+            label: "Tạm giữ",
+            color: "orange",
+        },
+        [OrderStatus.COMPLETED]: {
+            label: "Hoàn thành",
+            color: "success",
+        },
+        [OrderStatus.REFUND]: {
+            label: "Hoàn tiền",
+            color: "magenta",
+        },
+        [OrderStatus.CANCELLED]: {
+            label: "Đã hủy",
+            color: "error",
+        },
+    };
+
+    const filtered = useMemo(() => {
+        if (!orders || !Array.isArray(orders)) return [];
+
+        return (orders as any[]).filter((item: any) => {
+            const data: FirebaseOrderData = (item.data ||
+                item) as FirebaseOrderData;
+
+            const isSaleOwner =
+                data.consultantId === member.id || data.createdBy === member.id;
+
+            // Check if member appears in any workflow of any product
+            let isTechnicalOwner = false;
+            if (data.products) {
+                for (const product of Object.values(data.products) as any[]) {
+                    const workflows = product?.workflows || {};
+                    for (const wf of Object.values(workflows) as any[]) {
+                        if (
+                            Array.isArray(wf.members) &&
+                            wf.members.includes(member.id)
+                        ) {
+                            isTechnicalOwner = true;
+                            break;
+                        }
+                    }
+                    if (isTechnicalOwner) break;
+                }
+            }
+
+            return isSaleOwner || isTechnicalOwner;
+        });
+    }, [orders, member.id]);
+
+    const totalRevenue = useMemo(() => {
+        return filtered.reduce((sum: number, item: any) => {
+            const data = item.data || item;
+            return sum + (data.totalAmount || 0);
+        }, 0);
+    }, [filtered]);
+
+    const statusCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        filtered.forEach((item: any) => {
+            const data = item.data || item;
+            const status: string = data.status || OrderStatus.PENDING;
+            counts[status] = (counts[status] || 0) + 1;
+        });
+        return counts;
+    }, [filtered]);
+
+    const statusChartData = useMemo(
+        () =>
+            Object.entries(statusCounts).map(([status, value]) => ({
+                name: statusConfig[status]?.label || status,
+                value,
+            })),
+        [statusCounts],
+    );
+
+    const statusChartColors = [
+        "#4ade80",
+        "#60a5fa",
+        "#facc15",
+        "#f97316",
+        "#f472b6",
+        "#a855f7",
+        "#f87171",
+    ];
+
+    const getOrderCompletion = (data: FirebaseOrderData) => {
+        if (!data?.products) {
+            return { completed: 0, total: 0, percent: 0 };
+        }
+
+        let total = 0;
+        let completed = 0;
+
+        Object.values(data.products).forEach((product: any) => {
+            const workflows = product.workflows || {};
+            const workflowList = Object.values(workflows) as any[];
+            total += workflowList.length;
+            completed += workflowList.filter((w) => w.isDone).length;
+        });
+
+        const percent =
+            total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        return { completed, total, percent };
+    };
+
+    const columns: TableColumnsType<any> = [
+        {
+            title: "Mã đơn",
+            dataIndex: ["data", "code"],
+            key: "code",
+            width: 150,
+            fixed: "left",
+        },
+        {
+            title: "Khách hàng",
+            dataIndex: ["data", "customerName"],
+            key: "customerName",
+            width: 200,
+        },
+        {
+            title: "Ngày tạo",
+            dataIndex: ["data", "createdAt"],
+            key: "createdAt",
+            width: 140,
+            render: (value: number) =>
+                value ? dayjs(value).format("DD/MM/YYYY") : "-",
+        },
+        {
+            title: "Trạng thái đơn",
+            dataIndex: ["data", "status"],
+            key: "status",
+            width: 120,
+            render: (value: string) => {
+                const config = statusConfig[value] || {
+                    label: value || "N/A",
+                    color: "default",
+                };
+                return <Tag color={config.color}>{config.label}</Tag>;
+            },
+        },
+        {
+            title: "Hoàn thành",
+            key: "completion",
+            width: 140,
+            align: "center",
+            render: (_: unknown, record: any) => {
+                const data: FirebaseOrderData = record.data || record;
+                const { completed, total, percent } =
+                    getOrderCompletion(data);
+
+                if (!total) {
+                    return <Typography.Text type="secondary">-</Typography.Text>;
+                }
+
+                return (
+                    <Progress
+                        type="circle"
+                        percent={percent}
+                        size={44}
+                        strokeColor={{
+                            from: "#22c55e",
+                            to: "#4ade80",
+                        }}
+                        strokeLinecap="round"
+                        trailColor="#1f2937"
+                        format={() => `${completed}/${total}`}
+                    />
+                );
+            },
+        },
+        {
+            title: "Doanh thu",
+            dataIndex: ["data", "totalAmount"],
+            key: "totalAmount",
+            width: 140,
+            align: "right",
+            render: (value: number) =>
+                new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                }).format(value || 0),
+        },
+    ];
+
+    return (
+        <div className="space-y-4">
+            <Card
+                styles={{
+                    body: {
+                        padding: 16,
+                        background:
+                            "radial-gradient(circle at top left, #111827, #020617)",
+                    },
+                }}
+            >
+                <Row gutter={16} align="middle">
+                    <Col span={16}>
+                        <Space size={32} align="center">
+                            <Statistic
+                                title="Số đơn phụ trách"
+                                value={filtered.length}
+                                styles={{
+                                    content: {
+                                        fontSize: 26,
+                                        color: "#e5e7eb",
+                                    },
+                                    title: { color: "#9ca3af" },
+                                }}
+                            />
+                            <Statistic
+                                title="Tổng doanh thu"
+                                value={totalRevenue}
+                                precision={0}
+                                formatter={(value) =>
+                                    new Intl.NumberFormat("vi-VN", {
+                                        style: "currency",
+                                        currency: "VND",
+                                    }).format(Number(value))
+                                }
+                                styles={{
+                                    content: {
+                                        fontSize: 22,
+                                        color: "#4ade80",
+                                    },
+                                    title: { color: "#9ca3af" },
+                                }}
+                            />
+                        </Space>
+                    </Col>
+                    <Col span={8}>
+                        <div
+                            className="space-y-2"
+                            style={{ textAlign: "right" }}
+                        >
+                            <Typography.Text
+                                style={{ color: "#9ca3af", fontSize: 12 }}
+                            >
+                                Cơ cấu theo trạng thái
+                            </Typography.Text>
+                            <Space size={[6, 6]} wrap className="justify-end">
+                                {Object.entries(statusCounts).map(
+                                    ([status, count]) => {
+                                        const config =
+                                            statusConfig[status] || {
+                                                label: status,
+                                                color: "default",
+                                            };
+                                        return (
+                                            <Tag
+                                                key={status}
+                                                color={config.color}
+                                                style={{
+                                                    borderRadius: 999,
+                                                    padding: "2px 10px",
+                                                    fontSize: 11,
+                                                }}
+                                            >
+                                                {config.label}: {count}
+                                            </Tag>
+                                        );
+                                    },
+                                )}
+                                {Object.keys(statusCounts).length === 0 && (
+                                    <Typography.Text
+                                        style={{ color: "#6b7280" }}
+                                    >
+                                        Chưa có đơn nào
+                                    </Typography.Text>
+                                )}
+                            </Space>
+                            {statusChartData.length > 0 && (
+                                <div
+                                    style={{
+                                        width: 72,
+                                        height: 72,
+                                        marginLeft: "auto",
+                                    }}
+                                >
+                                    <ResponsiveContainer
+                                        width="100%"
+                                        height="100%"
+                                    >
+                                        <PieChart>
+                                            <Pie
+                                                data={statusChartData}
+                                                dataKey="value"
+                                                nameKey="name"
+                                                innerRadius={24}
+                                                outerRadius={36}
+                                                paddingAngle={3}
+                                            >
+                                                {statusChartData.map(
+                                                    (entry, index) => (
+                                                        <Cell
+                                                            key={entry.name}
+                                                            fill={
+                                                                statusChartColors[
+                                                                    index %
+                                                                        statusChartColors.length
+                                                                ]
+                                                            }
+                                                        />
+                                                    ),
+                                                )}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </div>
+                    </Col>
+                </Row>
+            </Card>
+
+            <Table
+                rowKey={(record: any) => record.id || record.code}
+                columns={columns}
+                dataSource={filtered}
+                pagination={false}
+                size="small"
+                scroll={{ x: true, y: 400 }}
+            />
+        </div>
+    );
+};
+
 const MembersPage = () => {
     const [members, setMembers] = useState<IMembers[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1641,6 +2314,7 @@ const MembersPage = () => {
     const [editingMember, setEditingMember] = useState<IMembers | undefined>();
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [departments, setDepartments] = useState<IDepartment[]>([]);
+    const [ordersDrawerMember, setOrdersDrawerMember] = useState<IMembers | null>(null);
     const { message } = App.useApp();
     const {
         query,
@@ -1651,6 +2325,9 @@ const MembersPage = () => {
         handlePageChange,
     } = useFilter();
     const { exportToXlsx } = useFileExport();
+    // Lazy load orders - only load when drawer is open
+    const { data: ordersData } =
+        useRealtimeList<FirebaseOrderData>(ordersDrawerMember ? "xoxo/orders" : null);
 
     // Load departments
     useEffect(() => {
@@ -1704,7 +2381,7 @@ const MembersPage = () => {
         };
     }, []);
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = useCallback(async (id: string) => {
         try {
             await MemberService.delete(id);
             message.success("Xóa nhân viên thành công!");
@@ -1712,10 +2389,10 @@ const MembersPage = () => {
             console.error("Error deleting member:", error);
             message.error("Có lỗi xảy ra khi xóa nhân viên!");
         }
-    };
+    }, [message]);
 
     // Handle export Excel
-    const handleExportExcel = () => {
+    const handleExportExcel = useCallback(() => {
         try {
             const exportData = filteredMembers.map((member) => ({
                 code: member.code,
@@ -1737,7 +2414,58 @@ const MembersPage = () => {
             console.error("Export failed:", error);
             message.error("Không thể xuất file Excel");
         }
-    };
+    }, [filteredMembers, exportToXlsx, message]);
+
+    // Handlers for column actions
+    const handleViewOrders = useCallback((record: IMembers) => (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setOrdersDrawerMember(record);
+    }, []);
+
+    const handleEditMember = useCallback((record: IMembers) => (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingMember(record);
+        setFormVisible(true);
+    }, []);
+
+    const handleDeleteConfirm = useCallback((id: string) => (e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        handleDelete(id);
+    }, [handleDelete]);
+
+    const handleStopPropagation = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+    }, []);
+
+    const handleAddNewMember = useCallback(() => {
+        setEditingMember(undefined);
+        setFormVisible(true);
+    }, []);
+
+    const handleImportFile = useCallback(() => {
+        message.info("Tính năng nhập file sẽ được implement");
+    }, [message]);
+
+    const handleMoreMenu = useCallback(() => {
+        message.info("Menu thêm sẽ được implement");
+    }, [message]);
+
+    const handleAddDepartment = useCallback(() => {
+        message.info("Tính năng thêm phòng ban sẽ được implement");
+    }, [message]);
+
+    const handleAddPosition = useCallback(() => {
+        message.info("Tính năng thêm chức danh sẽ được implement");
+    }, [message]);
+
+    const handleCloseOrdersDrawer = useCallback(() => {
+        setOrdersDrawerMember(null);
+    }, []);
+
+    const handleCloseForm = useCallback(() => {
+        setFormVisible(false);
+        setEditingMember(undefined);
+    }, []);
 
     const defaultColumns: TableColumnsType<IMembers> = useMemo(
         () => [
@@ -1747,26 +2475,13 @@ const MembersPage = () => {
                 key: "avatar",
                 width: 80,
                 fixed: "left",
-                render: (avatar: string, record: IMembers) => (
+                render: (avatar: string) => (
                     <Avatar
                         src={avatar}
                         icon={<UserOutlined />}
                         size="large"
                         className="bg-blue-500"
                     />
-                ),
-            },
-            {
-                title: "Mã nhân viên",
-                dataIndex: "code",
-                key: "code",
-                width: 150,
-                fixed: "left",
-                sorter: true,
-                render: (code: string) => (
-                    <Typography.Text strong className="font-mono">
-                        {code}
-                    </Typography.Text>
                 ),
             },
             {
@@ -1822,26 +2537,26 @@ const MembersPage = () => {
             {
                 title: "Thao tác",
                 key: "action",
-                width: 120,
+                width: 160,
                 fixed: "right",
                 render: (_: unknown, record: IMembers) => (
                     <Space size="small">
+                        <Tooltip title="Xem đơn phụ trách & doanh thu">
+                            <Button
+                                type="text"
+                                icon={<InfoCircleOutlined />}
+                                onClick={handleViewOrders(record)}
+                            />
+                        </Tooltip>
                         <Button
                             type="text"
                             icon={<EditOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingMember(record);
-                                setFormVisible(true);
-                            }}
+                            onClick={handleEditMember(record)}
                         />
                         <Popconfirm
                             title="Xác nhận xóa"
                             description="Bạn có chắc chắn muốn xóa nhân viên này?"
-                            onConfirm={(e) => {
-                                e?.stopPropagation();
-                                handleDelete(record.id);
-                            }}
+                            onConfirm={handleDeleteConfirm(record.id)}
                             okText="Xóa"
                             cancelText="Hủy"
                         >
@@ -1849,14 +2564,14 @@ const MembersPage = () => {
                                 type="text"
                                 danger
                                 icon={<DeleteOutlined />}
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={handleStopPropagation}
                             />
                         </Popconfirm>
                     </Space>
                 ),
             },
         ],
-        [],
+        [handleViewOrders, handleEditMember, handleDeleteConfirm, handleStopPropagation],
     );
 
     const { columnsCheck, updateColumns, resetColumns, getVisibleColumns } =
@@ -1869,12 +2584,23 @@ const MembersPage = () => {
         return getVisibleColumns();
     }, [columnsCheck, getVisibleColumns]);
 
-    const rowSelection = {
+    const reversedFilteredMembers = useMemo(() => {
+        return [...filteredMembers].reverse();
+    }, [filteredMembers]);
+
+    const paginationConfig = useMemo(() => ({
+        ...pagination,
+        onChange: handlePageChange,
+    }), [pagination, handlePageChange]);
+
+    const handleRowSelectionChange = useCallback((selectedKeys: React.Key[]) => {
+        setSelectedRowKeys(selectedKeys);
+    }, []);
+
+    const rowSelection = useMemo(() => ({
         selectedRowKeys,
-        onChange: (selectedKeys: React.Key[]) => {
-            setSelectedRowKeys(selectedKeys);
-        },
-    };
+        onChange: handleRowSelectionChange,
+    }), [selectedRowKeys, handleRowSelectionChange]);
 
     return (
         <WrapperContent<IMembers>
@@ -1909,11 +2635,7 @@ const MembersPage = () => {
                                 label: dept.name,
                                 value: dept.code,
                             })),
-                            onAddNew: () => {
-                                message.info(
-                                    "Tính năng thêm phòng ban sẽ được implement",
-                                );
-                            },
+                            onAddNew: handleAddDepartment,
                         },
                         {
                             name: "position",
@@ -1924,11 +2646,7 @@ const MembersPage = () => {
                                 label: role.label,
                                 value: role.value,
                             })),
-                            onAddNew: () => {
-                                message.info(
-                                    "Tính năng thêm chức danh sẽ được implement",
-                                );
-                            },
+                            onAddNew: handleAddPosition,
                         },
                     ],
                 },
@@ -1943,20 +2661,13 @@ const MembersPage = () => {
                         type: "primary",
                         name: "Nhân viên",
                         icon: <PlusOutlined />,
-                        onClick: () => {
-                            setEditingMember(undefined);
-                            setFormVisible(true);
-                        },
+                        onClick: handleAddNewMember,
                     },
                     {
                         can: true,
                         name: "Nhập file",
                         icon: <UploadOutlined />,
-                        onClick: () => {
-                            message.info(
-                                "Tính năng nhập file sẽ được implement",
-                            );
-                        },
+                        onClick: handleImportFile,
                     },
                     {
                         can: true,
@@ -1968,32 +2679,45 @@ const MembersPage = () => {
                         can: true,
                         name: "",
                         icon: <MoreOutlined />,
-                        onClick: () => {
-                            message.info("Menu thêm sẽ được implement");
-                        },
+                        onClick: handleMoreMenu,
                     },
                 ],
             }}
         >
             <CommonTable
                 rowKey="id"
-                dataSource={filteredMembers.reverse()}
+                dataSource={reversedFilteredMembers}
                 columns={visibleColumns}
                 loading={loading}
                 DrawerDetails={MemberDetails}
-                pagination={{ ...pagination, onChange: handlePageChange }}
+                pagination={paginationConfig}
                 paging={true}
                 rank={true}
                 rowSelection={rowSelection}
             />
 
+            <Drawer
+                width={900}
+                title={
+                    ordersDrawerMember
+                        ? `Đơn phụ trách - ${ordersDrawerMember.name}`
+                        : "Đơn phụ trách"
+                }
+                open={!!ordersDrawerMember}
+                onClose={handleCloseOrdersDrawer}
+            >
+                {ordersDrawerMember && (
+                    <MemberOrdersOverview
+                        member={ordersDrawerMember}
+                        orders={ordersData || []}
+                    />
+                )}
+            </Drawer>
+
             <MemberForm
                 member={editingMember}
                 visible={formVisible}
-                onCancel={() => {
-                    setFormVisible(false);
-                    setEditingMember(undefined);
-                }}
+                onCancel={handleCloseForm}
                 onSuccess={() => {
                     // Data will be updated through realtime listener
                 }}

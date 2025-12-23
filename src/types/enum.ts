@@ -57,6 +57,33 @@ export const RoleLabels: Record<ROLES, string> = {
   // hr: "Nhân sự",
 };
 
+export enum LeadStatus {
+  Considering = "considering", // Cân nhắc
+  WaitingForPhotos = "waiting_for_photos", // Hẹn gửi ảnh
+  WaitingForVisit = "waiting_for_visit", // Hẹn qua
+  WaitingForItems = "waiting_for_items", // Hẹn gửi đồ
+  NotInterested = "not_interested", // Không quan tâm
+  Cancel = "cancel", // Cancel
+}
+
+export const LeadStatusOptions = [
+  { label: "Cân nhắc", value: LeadStatus.Considering },
+  { label: "Hẹn gửi ảnh", value: LeadStatus.WaitingForPhotos },
+  { label: "Hẹn qua", value: LeadStatus.WaitingForVisit },
+  { label: "Hẹn gửi đồ", value: LeadStatus.WaitingForItems },
+  { label: "Không quan tâm", value: LeadStatus.NotInterested },
+  { label: "Cancel", value: LeadStatus.Cancel },
+];
+
+export const LeadStatusLabels: Record<LeadStatus, string> = {
+  [LeadStatus.Considering]: "Cân nhắc",
+  [LeadStatus.WaitingForPhotos]: "Hẹn gửi ảnh",
+  [LeadStatus.WaitingForVisit]: "Hẹn qua",
+  [LeadStatus.WaitingForItems]: "Hẹn gửi đồ",
+  [LeadStatus.NotInterested]: "Không quan tâm",
+  [LeadStatus.Cancel]: "Cancel",
+};
+
 export type IOption ={
     label: string;
     value: string;

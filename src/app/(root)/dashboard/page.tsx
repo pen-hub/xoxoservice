@@ -56,23 +56,69 @@ import "dayjs/locale/vi";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
+
+// Dynamic import Recharts components for better performance
+const ResponsiveContainer = dynamic(
+  () => import("recharts").then((mod) => mod.ResponsiveContainer),
+  { ssr: false }
+);
+const BarChart = dynamic(
+  () => import("recharts").then((mod) => mod.BarChart),
+  { ssr: false }
+);
+const Bar = dynamic(
+  () => import("recharts").then((mod) => mod.Bar),
+  { ssr: false }
+);
+const LineChart = dynamic(
+  () => import("recharts").then((mod) => mod.LineChart),
+  { ssr: false }
+);
+const Line = dynamic(
+  () => import("recharts").then((mod) => mod.Line),
+  { ssr: false }
+);
+const PieChart = dynamic(
+  () => import("recharts").then((mod) => mod.PieChart),
+  { ssr: false }
+);
+const Pie = dynamic(
+  () => import("recharts").then((mod) => mod.Pie),
+  { ssr: false }
+);
+const AreaChart = dynamic(
+  () => import("recharts").then((mod) => mod.AreaChart),
+  { ssr: false }
+);
+const Area = dynamic(
+  () => import("recharts").then((mod) => mod.Area),
+  { ssr: false }
+);
+const CartesianGrid = dynamic(
+  () => import("recharts").then((mod) => mod.CartesianGrid),
+  { ssr: false }
+);
+const XAxis = dynamic(
+  () => import("recharts").then((mod) => mod.XAxis),
+  { ssr: false }
+);
+const YAxis = dynamic(
+  () => import("recharts").then((mod) => mod.YAxis),
+  { ssr: false }
+);
+const Tooltip = dynamic(
+  () => import("recharts").then((mod) => mod.Tooltip),
+  { ssr: false }
+);
+const Legend = dynamic(
+  () => import("recharts").then((mod) => mod.Legend),
+  { ssr: false }
+);
+const Cell = dynamic(
+  () => import("recharts").then((mod) => mod.Cell),
+  { ssr: false }
+);
 
 // Extend dayjs with relativeTime plugin
 dayjs.extend(relativeTime);
@@ -808,7 +854,7 @@ export default function DashboardPage() {
                 formatter={(value) =>
                   `${((value as number) / 1000000).toFixed(1)}tr`
                 }
-                valueStyle={{ color: "#3f8600", fontSize: "24px" }}
+                styles={{ content: { color: "#3f8600", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -828,7 +874,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.totalOrders}
                 suffix="đơn"
-                valueStyle={{ color: "#1890ff", fontSize: "24px" }}
+                styles={{ content: { color: "#1890ff", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -848,7 +894,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.processingOrders}
                 suffix="đơn"
-                valueStyle={{ color: "#faad14", fontSize: "24px" }}
+                styles={{ content: { color: "#faad14", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -868,7 +914,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.completedOrders}
                 suffix="đơn"
-                valueStyle={{ color: "#52c41a", fontSize: "24px" }}
+                styles={{ content: { color: "#52c41a", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -910,7 +956,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.totalWarranties}
                 suffix="phiếu"
-                valueStyle={{ color: "#1890ff", fontSize: "24px" }}
+                styles={{ content: { color: "#1890ff", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -931,7 +977,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.totalFeedbacks}
                 suffix="phản hồi"
-                valueStyle={{ color: "#faad14", fontSize: "24px" }}
+                styles={{ content: { color: "#faad14", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -952,7 +998,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.totalRefunds}
                 suffix="yêu cầu"
-                valueStyle={{ color: "#ff4d4f", fontSize: "24px" }}
+                styles={{ content: { color: "#ff4d4f", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -976,7 +1022,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.totalAppointments}
                 suffix="cuộc hẹn"
-                valueStyle={{ color: "#722ed1", fontSize: "24px" }}
+                styles={{ content: { color: "#722ed1", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -997,7 +1043,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.warrantyClaimsCount}
                 suffix="khiếu nại"
-                valueStyle={{ color: "#13c2c2", fontSize: "24px" }}
+                styles={{ content: { color: "#13c2c2", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -1017,7 +1063,7 @@ export default function DashboardPage() {
                 }
                 value={filteredStats.newCustomers}
                 suffix="khách"
-                valueStyle={{ color: "#52c41a", fontSize: "24px" }}
+                styles={{ content: { color: "#52c41a", fontSize: "24px" } }}
               />
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Text className="text-gray-500 text-xs">
@@ -1070,19 +1116,20 @@ export default function DashboardPage() {
                 <XAxis dataKey="month" />
                 <YAxis
                   width={80}
-                  tickFormatter={(value: number) => {
-                    if (value >= 1000000) {
-                      return `${(value / 1000000).toFixed(0)}tr`;
+                  tickFormatter={(value) => {
+                    const numValue = Number(value);
+                    if (numValue >= 1000000) {
+                      return `${(numValue / 1000000).toFixed(0)}tr`;
                     }
-                    return `${(value / 1000).toFixed(0)}k`;
+                    return `${(numValue / 1000).toFixed(0)}k`;
                   }}
                 />
                 <Tooltip
-                  formatter={(value: number) =>
+                  formatter={(value) =>
                     `${new Intl.NumberFormat("vi-VN", {
                       style: "currency",
                       currency: "VND",
-                    }).format(value)}`
+                    }).format(Number(value))}`
                   }
                 />
                 <Bar dataKey="revenue" radius={[8, 8, 0, 0]}>
@@ -1494,19 +1541,20 @@ export default function DashboardPage() {
                           <XAxis dataKey="month" />
                           <YAxis
                             width={80}
-                            tickFormatter={(value: number) => {
-                              if (value >= 1000000) {
-                                return `${(value / 1000000).toFixed(0)}tr`;
+                            tickFormatter={(value) => {
+                              const numValue = Number(value);
+                              if (numValue >= 1000000) {
+                                return `${(numValue / 1000000).toFixed(0)}tr`;
                               }
-                              return `${(value / 1000).toFixed(0)}k`;
+                              return `${(numValue / 1000).toFixed(0)}k`;
                             }}
                           />
                           <Tooltip
-                            formatter={(value: number) =>
+                            formatter={(value) =>
                               `${new Intl.NumberFormat("vi-VN", {
                                 style: "currency",
                                 currency: "VND",
-                              }).format(value)}`
+                              }).format(Number(value))}`
                             }
                           />
                           <Area

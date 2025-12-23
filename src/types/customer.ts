@@ -1,5 +1,7 @@
 import { CustomerSource } from "./enum";
 
+import { LeadStatus } from "./enum";
+
 export interface Customer {
     code: string;
     name: string;
@@ -17,6 +19,11 @@ export interface Customer {
     taxCode?: string;
     facebook?: string;
     notes?: string;
+    // Lead fields
+    salePerson?: string; // Sale phụ trách (member ID)
+    mktPerson?: string; // MKT phụ trách (member ID)
+    pageManager?: string; // Trực page
+    status?: LeadStatus; // Trạng thái
     createdAt: number;
     updatedAt: number;
 }

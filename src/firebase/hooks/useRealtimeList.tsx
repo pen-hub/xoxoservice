@@ -21,7 +21,7 @@ export interface UseRealtimeListResult<T> {
  * Hook để lấy danh sách dữ liệu realtime từ Firebase Realtime Database
  */
 export function useRealtimeList<T = any>(
-  path: string
+  path: string | null
 ): UseRealtimeListResult<T> {
   const [data, setData] = useState<WithId<T>[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);

@@ -1,8 +1,9 @@
 export enum SalaryType {
-  FIXED = "fixed", // Cố định
-  BY_SHIFT = "by_shift", // Theo ca làm việc
-  BY_HOUR = "by_hour", // Theo giờ làm việc
+  FIXED = "fixed", // Lương cơ bản
+  BY_SHIFT = "by_shift", // Lương theo ca
+  BY_HOUR = "by_hour", // Lương theo giờ
   BY_DAY = "by_day", // Theo ngày công chuẩn
+  KPI_BONUS = "kpi_bonus", // Thưởng KPI
 }
 
 export interface SalaryConfig {

@@ -19,11 +19,21 @@ import {
 import { WarrantyClaimStatus, type WarrantyClaim } from "@/types/warrantyClaim";
 import { PlusOutlined } from "@ant-design/icons";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
-import { App, Badge, Empty, Typography } from "antd";
+import {
+    App,
+    Badge,
+    Card,
+    Col,
+    Empty,
+    Row,
+    Statistic,
+    Typography,
+} from "antd";
 import "dayjs/locale/vi";
 import { ref, update } from "firebase/database";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
+import SuperJSON from "superjson";
 
 const { Text, Title } = Typography;
 
@@ -305,6 +315,31 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         return filtered;
     }, [workingOrders, applyFilter, query, members]);
 
+    const statusSummary = useMemo(() => {
+        const initialCounts = columnsKanban.reduce(
+            (acc, column) => {
+                acc[column.status] = 0;
+                return acc;
+            },
+            {} as Record<OrderStatus, number>,
+        );
+
+        filteredOrders.forEach((order) => {
+            if (order.status && initialCounts[order.status] !== undefined) {
+                initialCounts[order.status] += 1;
+            }
+        });
+
+        return columnsKanban.map((column) => ({
+            key: column.key,
+            title: column.title,
+            status: column.status,
+            color: column.color,
+            badgeBgColor: column.badgeBgColor ?? column.color,
+            count: initialCounts[column.status] ?? 0,
+        }));
+    }, [SuperJSON.stringify(filteredOrders)]);
+
     // Group orders by column
     const getOrdersForColumn = (columnKey: OrderStatus) => {
         return filteredOrders.filter(
@@ -537,6 +572,54 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             Tổng cộng: <Text strong>{workingOrders.length} đơn hàng</Text>
           </Text>
         </div> */}
+
+                <div className="overflow-x-auto pb-2 kanban-scroll">
+                    <div className="flex gap-3 min-w-max">
+                        {statusSummary.map((item) => (
+                            <div key={item.key} className="shrink-0 w-52">
+                                <Card
+                                    size="small"
+                                    styles={{
+                                        body: {
+                                            padding: 10,
+                                        },
+                                    }}
+                                >
+                                    <div className="flex items-center justify-between mb-1">
+                                        <Text strong style={{ color: item.color }}>
+                                            {item.title}
+                                        </Text>
+                                        <Badge
+                                            count={item.count}
+                                            style={{
+                                                backgroundColor: item.badgeBgColor,
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-1">
+                                        <Text
+                                            style={{
+                                                color: "#8c8c8c",
+                                                fontSize: 12,
+                                            }}
+                                        >
+                                            Số đơn
+                                        </Text>
+                                        <Text
+                                            strong
+                                            style={{
+                                                color: item.color,
+                                                fontSize: 18,
+                                            }}
+                                        >
+                                            {item.count}
+                                        </Text>
+                                    </div>
+                                </Card>
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
                 {/* Kanban Columns with Drag & Drop */}
                 <div className="overflow-x-auto pb-4 kanban-scroll">

@@ -18,7 +18,9 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Turbopack configuration for Next.js 16
-  turbopack: {},
+  turbopack: {
+    root: "D:/xoxo/xoxo",
+  },
   images: {
     remotePatterns: [
       {

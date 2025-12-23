@@ -173,7 +173,8 @@ export default function CenterPage() {
                         style={{
                           height: "100%",
                           borderRadius: token.borderRadius,
-                          border: `1px solid ${token.colorBorder}`,
+                          border: "none", // Removed border as requested
+                          boxShadow: "none", // Optional: cleaner look without shadow until hover
                           transition: "all 0.3s",
                         }}
                         styles={{
@@ -190,11 +191,17 @@ export default function CenterPage() {
                       >
                         <span
                           style={{
-                            fontSize: 32,
-                            color: token.colorPrimary,
+                            fontSize: 24,
+                            color: "#fff",
+                            backgroundColor: child.color || section.color || token.colorPrimary,
                             marginBottom: 12,
                             display: "inline-flex",
                             alignItems: "center",
+                            justifyContent: "center",
+                            width: 56,
+                            height: 56,
+                            borderRadius: 16,
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                           }}
                         >
                           <IconComponent />

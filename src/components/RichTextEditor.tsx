@@ -32,8 +32,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         const loadEditor = async () => {
             try {
                 // Standard path for shadcn-editor after installation
+                // Using relative path for better build-time resolution
                 const EditorModule =
-                    await import("@/components/blocks/editor-00");
+                    await import("../blocks/editor-00");
                 const Editor =
                     EditorModule.default || EditorModule.Editor || EditorModule;
                 if (Editor) {

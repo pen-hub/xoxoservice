@@ -19,6 +19,7 @@ import {
   DatePicker,
   Form,
   Input,
+  InputNumber,
   Modal,
   Progress,
   Row,
@@ -62,17 +63,71 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
   const { message } = App.useApp();
 
   useEffect(() => {
-    if (order) {
-      setLocalOrder(order);
-      form.setFieldsValue({
-        customerName: order.customerName,
-        phone: order.phone,
-        email: order.email,
-        address: order.address,
-        deliveryDate: order.deliveryDate ? dayjs(order.deliveryDate) : null,
-        notes: order.notes || "",
-      });
-    }
+    if (!order) return;
+
+    const normalizeOrder = (
+      input: FirebaseOrderData & { id: string },
+      workflowTemplates: Record<string, Workflow>
+    ): FirebaseOrderData & { id: string } => {
+      if (!input.products) return input;
+
+      const normalizedProducts = Object.entries(input.products).reduce(
+        (acc, [productId, product]) => {
+          const productWorkflows = product.workflows || {};
+          const normalizedWorkflows = Object.entries(productWorkflows).reduce(
+            (wfAcc, [workflowId, workflow]) => {
+              const codes = workflow.workflowCode || [];
+              // If multiple codes were stored in one row, split them into separate rows
+              if (Array.isArray(codes) && codes.length > 1) {
+                codes.forEach((code, idx) => {
+                  const workflowTemplate = workflowTemplates[code];
+                  const name =
+                    workflow.workflowName?.[idx] ||
+                    workflow.workflowName?.[0] ||
+                    (workflowTemplate ? workflowTemplate.name : "") ||
+                    "";
+                  const newId = `${workflowId}-${idx}`;
+                  wfAcc[newId] = {
+                    ...workflow,
+                    workflowCode: [code],
+                    workflowName: name ? [name] : [],
+                    members: [], // reset members to avoid wrong mapping after split
+                  };
+                });
+              } else {
+                wfAcc[workflowId] = workflow;
+              }
+              return wfAcc;
+            },
+            {} as Record<string, FirebaseWorkflowData>
+          );
+
+          acc[productId] = {
+            ...product,
+            workflows: normalizedWorkflows,
+          };
+          return acc;
+        },
+        {} as typeof input.products
+      );
+
+      return {
+        ...input,
+        products: normalizedProducts,
+      };
+    };
+
+    const normalized = normalizeOrder(order, workflows);
+
+    setLocalOrder(normalized);
+    form.setFieldsValue({
+      customerName: normalized.customerName,
+      phone: normalized.phone,
+      email: normalized.email,
+      address: normalized.address,
+      deliveryDate: normalized.deliveryDate ? dayjs(normalized.deliveryDate) : null,
+      notes: normalized.notes || "",
+    });
   }, [order, form]);
 
   const membersOptions = Object.entries(members).map(([id, membersMember]) => ({
@@ -125,6 +180,7 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
       members: [],
       isDone: false,
       updatedAt: new Date().getTime(),
+      price: 0,
     };
 
     const updatedOrder = {
@@ -166,17 +222,15 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
         workflowName: [], // Reset workflow names
         members: [], // Reset members
       };
-    } else if (field === "workflowCode" && Array.isArray(value)) {
-      const selectedWorkflowCodes = value;
-      const selectedWorkflowNames = selectedWorkflowCodes
-        .map((code) => workflows[code]?.name)
-        .filter(Boolean);
+    } else if (field === "workflowCode") {
+      const selectedCode = Array.isArray(value) ? value[0] : value;
+      const selectedName = selectedCode ? workflows[selectedCode]?.name : "";
 
       updatedWorkflow = {
         ...updatedWorkflow,
-        workflowCode: selectedWorkflowCodes,
-        workflowName: selectedWorkflowNames,
-        members: [], // Clear members when workflows change
+        workflowCode: selectedCode ? [selectedCode] : [],
+        workflowName: selectedName ? [selectedName] : [],
+        members: [], // Clear members when workflow changes
       };
     } else {
       updatedWorkflow = {
@@ -430,44 +484,15 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                     dataIndex: "departmentCode",
                                     key: "departmentCode",
                                     width: "20%",
-                                    render: (value, record, index) => {
-                                      console.log(
-                                        "Phòng ban - record.departmentCode:",
-                                        record.departmentCode
-                                      );
-                                      console.log(
-                                        "Phòng ban - departments prop:",
-                                        departments
-                                      );
-
-                                      // Get departments already used in other rows
-                                      const selectedDepartmentCodes =
-                                        Object.entries(product.workflows || {})
-                                          .filter(([_, wf], i) => i !== index)
-                                          .map(
-                                            ([_, wf]: [string, any]) =>
-                                              wf.departmentCode
-                                          )
-                                          .filter(Boolean);
-
+                                    render: (value, record) => {
                                       const departmentOptions = departments
-                                        ? Object.keys(departments)
-                                            .filter(
-                                              (code) =>
-                                                !selectedDepartmentCodes.includes(
-                                                  code
-                                                )
-                                            )
-                                            .map((code) => ({
+                                        ? Object.keys(departments).map(
+                                            (code) => ({
                                               value: code,
                                               label: departments[code].name,
-                                            }))
+                                            })
+                                          )
                                         : [];
-
-                                      console.log(
-                                        "Phòng ban - departmentOptions:",
-                                        departmentOptions
-                                      );
 
                                       return (
                                         <Select
@@ -534,17 +559,19 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                         availableWorkflows
                                       );
 
+                                      const workflowValue = Array.isArray(value)
+                                        ? value[0]
+                                        : value;
+
                                       return (
                                         <Select
-                                          mode="multiple"
-                                          maxTagCount={2}
-                                          value={value}
+                                          value={workflowValue}
                                           placeholder={
                                             departmentCode
                                               ? "Chọn công đoạn"
                                               : "Chọn phòng ban trước"
                                           }
-                                          onChange={(newValue: string[]) =>
+                                          onChange={(newValue: string) =>
                                             updateWorkflow(
                                               productId,
                                               record.key,
@@ -558,7 +585,6 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                           showSearch={{
                                             optionFilterProp: "children",
                                           }}
-                                          tagRender={customWorkflowTagRender}
                                         >
                                           {availableWorkflows.map((opt) => (
                                             <Select.Option
@@ -576,7 +602,7 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                     title: "Nhân viên thực hiện",
                                     dataIndex: "members",
                                     key: "members",
-                                    width: "35%",
+                                    width: "30%",
                                     render: (value: string[], record) => {
                                       const departmentCode =
                                         record.departmentCode;
@@ -638,10 +664,66 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                     },
                                   },
                                   {
+                                    title: "Ghi chú",
+                                    dataIndex: "note",
+                                    key: "note",
+                                    width: "20%",
+                                    render: (value, record) => (
+                                      <Input
+                                        placeholder="Nhắc nhở cho công đoạn sau"
+                                        size="small"
+                                        value={value}
+                                        onChange={(e) =>
+                                          updateWorkflow(
+                                            productId,
+                                            record.key,
+                                            "note",
+                                            e.target.value
+                                          )
+                                        }
+                                      />
+                                    ),
+                                  },
+                                  {
+                                    title: "Giá công",
+                                    dataIndex: "price",
+                                    key: "price",
+                                    width: "15%",
+                                    render: (value, record) => (
+                                      <InputNumber
+                                        placeholder="Nhập giá"
+                                        size="small"
+                                        value={value || 0}
+                                        min={0}
+                                        formatter={(value) =>
+                                          `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                          )
+                                        }
+                                        parser={(value) =>
+                                          Number(
+                                            value?.replace(/,/g, "") || 0
+                                          ) as any
+                                        }
+                                        addonAfter="VNĐ"
+                                        className="w-full"
+                                        onChange={(newValue) =>
+                                          updateWorkflow(
+                                            productId,
+                                            record.key,
+                                            "price",
+                                            newValue || 0
+                                          )
+                                        }
+                                      />
+                                    ),
+                                  },
+                                  {
                                     title: "Trạng thái",
                                     dataIndex: "isDone",
                                     key: "isDone",
-                                    width: "15%",
+                                    width: "12%",
                                     render: (value, record, index) => (
                                       <Checkbox
                                         checked={value}
@@ -650,6 +732,25 @@ export const WorkflowUpdateModal: React.FC<WorkflowUpdateModalProps> = ({
                                             productId,
                                             record.key,
                                             "isDone",
+                                            e.target.checked
+                                          )
+                                        }
+                                      />
+                                    ),
+                                  },
+                                  {
+                                    title: "Đã duyệt",
+                                    dataIndex: "isApproved",
+                                    key: "isApproved",
+                                    width: "15%",
+                                    render: (value, record) => (
+                                      <Checkbox
+                                        checked={Boolean(value)}
+                                        onChange={(e) =>
+                                          updateWorkflow(
+                                            productId,
+                                            record.key,
+                                            "isApproved",
                                             e.target.checked
                                           )
                                         }

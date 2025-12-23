@@ -7,7 +7,8 @@ import type {
     Province,
     Ward,
 } from "@/types/customer";
-import { CustomerSource, CustomerSourceOptions } from "@/types/enum";
+import { CustomerSource, CustomerSourceOptions, LeadStatus, LeadStatusOptions } from "@/types/enum";
+import { IMembers } from "@/types/members";
 import { genCode } from "@/utils/genCode";
 import { PlusOutlined, UserOutlined } from "@ant-design/icons";
 import {
@@ -37,6 +38,7 @@ interface CustomerFormModalProps {
     editingCustomer: Customer | null;
     customerGroups: Record<string, CustomerGroup>;
     provinces: Province[];
+    members?: IMembers[];
     onCancel: () => void;
     onSuccess: () => void;
 }
@@ -46,6 +48,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
     editingCustomer,
     customerGroups,
     provinces,
+    members = [],
     onCancel,
     onSuccess,
 }) => {
@@ -165,16 +168,16 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                 Object.entries(customerData).filter(
                     ([_, value]) => value !== undefined,
                 ),
-            ) as Customer;
+            ) as Record<string, any> as Customer;
 
             const customerRef = ref(database, `xoxo/customers/${values.code}`);
 
             if (editingCustomer) {
                 await update(customerRef, cleanedData);
-                message.success("Cập nhật khách hàng thành công!");
+                message.success("Cập nhật Lead Khách hàng thành công!");
             } else {
                 await set(customerRef, cleanedData);
-                message.success("Thêm khách hàng thành công!");
+                message.success("Thêm Lead Khách hàng thành công!");
             }
 
             handleClose();
@@ -205,8 +208,8 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                         <UserOutlined />
                         <Text strong>
                             {editingCustomer
-                                ? "Cập nhật khách hàng"
-                                : "Thêm khách hàng mới"}
+                                ? "Cập nhật Lead Khách hàng"
+                                : "Thêm Lead Khách hàng mới"}
                         </Text>
                     </div>
                 }
@@ -493,6 +496,61 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                                 <Input
                                     placeholder="Nhập Facebook"
                                     size="large"
+                                />
+                            </Form.Item>
+
+                            <Form.Item name="salePerson" label="Sale phụ trách">
+                                <Select
+                                    placeholder="Chọn Sale phụ trách"
+                                    size="large"
+                                    showSearch
+                                    allowClear
+                                    filterOption={(input, option) =>
+                                        (option?.label ?? "")
+                                            .toLowerCase()
+                                            .includes(input.toLowerCase())
+                                    }
+                                    options={members
+                                        .filter((m) => m.role === "sales" || m.isActive !== false)
+                                        .map((member) => ({
+                                            value: member.id,
+                                            label: member.name,
+                                        }))}
+                                />
+                            </Form.Item>
+
+                            <Form.Item name="mktPerson" label="MKT phụ trách">
+                                <Select
+                                    placeholder="Chọn MKT phụ trách"
+                                    size="large"
+                                    showSearch
+                                    allowClear
+                                    filterOption={(input, option) =>
+                                        (option?.label ?? "")
+                                            .toLowerCase()
+                                            .includes(input.toLowerCase())
+                                    }
+                                    options={members
+                                        .filter((m) => m.isActive !== false)
+                                        .map((member) => ({
+                                            value: member.id,
+                                            label: member.name,
+                                        }))}
+                                />
+                            </Form.Item>
+
+                            <Form.Item name="pageManager" label="Trực page">
+                                <Input
+                                    placeholder="Nhập tên người trực page"
+                                    size="large"
+                                />
+                            </Form.Item>
+
+                            <Form.Item name="status" label="Trạng thái">
+                                <Select
+                                    placeholder="Chọn trạng thái"
+                                    size="large"
+                                    options={LeadStatusOptions}
                                 />
                             </Form.Item>
 

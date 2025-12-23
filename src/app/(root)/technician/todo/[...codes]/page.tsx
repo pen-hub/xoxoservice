@@ -3,12 +3,14 @@
 import WrapperContent from "@/components/WrapperContent";
 import { useRealtimeDoc, useRealtimeValue } from "@/firebase/hooks/useRealtime";
 import { useFirebaseApp, useUser } from "@/firebase/provider";
+import { ProcessFlowService } from "@/services/processFlowService";
 import { IMembers } from "@/types/members";
 import {
     FirebaseDepartments,
     FirebaseOrderData,
     FirebaseWorkflowData,
 } from "@/types/order";
+import type { ProductProcessInstance } from "@/types/processInstance";
 import { type WarrantyClaim } from "@/types/warrantyClaim";
 import {
     CheckCircleOutlined,
@@ -142,100 +144,155 @@ const ProductWorkflowDetailsPage = () => {
         return orderData.products[productCode];
     }, [orderData?.products, productCode]);
 
-    // Get workflows with checklist
-    const workflows = useMemo(() => {
-        if (!product?.workflows) return [];
-        return Object.entries(product.workflows).map(
-            ([workflowId, workflow]) => {
-                // Initialize checklist if not exists
-                let checklist: ChecklistTask[] = [];
-                if ((workflow as any).checklist) {
-                    checklist = (workflow as any).checklist;
-                } else {
-                    // Create default checklist based on workflow names
-                    checklist = workflow.workflowName.map((name, index) => ({
-                        id: `task_${workflowId}_${index}`,
-                        task_name: name,
-                        task_order: index + 1,
-                        checked: false,
-                    }));
-                }
+    // Get process instances or legacy workflows
+    const processInstances = useMemo(() => {
+        if (!product) return [];
 
-                return {
-                    ...workflow,
-                    id: workflowId,
-                    checklist,
-                } as WorkflowWithChecklist & { id: string };
-            },
-        );
-    }, [product?.workflows]);
+        // Check if product uses new process instances structure
+        if (product.processInstances) {
+            return Object.entries(product.processInstances).map(
+                ([instanceId, instance]) => ({
+                    ...instance,
+                    instanceId,
+                }),
+            );
+        }
 
-    // Handle checklist task toggle
+        // Fallback to legacy workflows structure
+        if (product.workflows) {
+            return Object.entries(product.workflows).map(
+                ([workflowId, workflow]) => {
+                    let checklist: ChecklistTask[] = [];
+                    if ((workflow as any).checklist) {
+                        checklist = (workflow as any).checklist;
+                    } else {
+                        checklist = workflow.workflowName.map(
+                            (name, index) => ({
+                                id: `task_${workflowId}_${index}`,
+                                task_name: name,
+                                task_order: index + 1,
+                                checked: false,
+                            }),
+                        );
+                    }
+
+                    return {
+                        ...workflow,
+                        id: workflowId,
+                        checklist,
+                        isLegacy: true,
+                    } as WorkflowWithChecklist & {
+                        id: string;
+                        isLegacy: boolean;
+                    };
+                },
+            );
+        }
+
+        return [];
+    }, [product]);
+
+    // Check if using new process instances
+    const usingNewStructure = useMemo(() => {
+        return product?.processInstances !== undefined;
+    }, [product]);
+
+    // Handle task toggle - supports both new and legacy structures
     const handleTaskToggle = async (
-        workflowId: string,
+        processInstanceId: string,
+        stageId: string,
         taskId: string,
         checked: boolean,
+        isLegacy = false,
+        legacyWorkflowId?: string,
     ) => {
         if (!orderCode || !productCode || !firebaseApp) return;
 
         try {
-            const db = getDatabase(firebaseApp);
-            const workflow = workflows.find((w) => w.id === workflowId);
-            if (!workflow) return;
-
-            // Check if previous workflow is completed
-            const workflowIndex = workflows.findIndex(
-                (w) => w.id === workflowId,
-            );
-            if (workflowIndex > 0) {
-                const previousWorkflow = workflows[workflowIndex - 1];
-                if (!previousWorkflow.isDone) {
-                    antdMessage.warning(
-                        "Vui lòng hoàn thành quy trình trước đó trước khi thực hiện quy trình này",
-                    );
-                    return;
-                }
-            }
-
-            // Get user name from membersMap
             const checkedByName = user?.uid
                 ? user.displayName || user.email || "Không rõ"
                 : undefined;
 
-            // Update checklist
-            const updatedChecklist = workflow.checklist?.map((task) =>
-                task.id === taskId
-                    ? {
-                          ...task,
-                          checked,
-                          checked_at: checked ? Date.now() : undefined,
-                          checked_by: checked ? user?.uid : undefined,
-                          checkedByName: checked ? checkedByName : undefined,
-                      }
-                    : task,
-            );
+            if (isLegacy && legacyWorkflowId) {
+                // Legacy workflow handling
+                const db = getDatabase(firebaseApp);
+                const workflow = processInstances.find(
+                    (w: any) => w.id === legacyWorkflowId && w.isLegacy,
+                ) as any;
+                if (!workflow) return;
 
-            // Check if all tasks are completed
-            const allTasksCompleted =
-                updatedChecklist?.every((task) => task.checked) ?? false;
+                const workflowIndex = processInstances.findIndex(
+                    (w: any) => w.id === legacyWorkflowId,
+                );
+                if (workflowIndex > 0) {
+                    const previousWorkflow = processInstances[
+                        workflowIndex - 1
+                    ] as any;
+                    if (
+                        !previousWorkflow.isDone &&
+                        !previousWorkflow.isLegacy
+                    ) {
+                        antdMessage.warning(
+                            "Vui lòng hoàn thành quy trình trước đó trước khi thực hiện quy trình này",
+                        );
+                        return;
+                    }
+                }
 
-            // Update workflow in Firebase - use correct path based on type
-            const basePath = isWarrantyClaim
-                ? `xoxo/warranty_claims/${orderCode}/products/${productCode}/workflows/${workflowId}`
-                : `xoxo/orders/${orderCode}/products/${productCode}/workflows/${workflowId}`;
-            const workflowRef = ref(db, basePath);
+                const updatedChecklist = workflow.checklist?.map(
+                    (task: ChecklistTask) =>
+                        task.id === taskId
+                            ? {
+                                  ...task,
+                                  checked,
+                                  checked_at: checked ? Date.now() : undefined,
+                                  checked_by: checked ? user?.uid : undefined,
+                                  checkedByName: checked
+                                      ? checkedByName
+                                      : undefined,
+                              }
+                            : task,
+                );
 
-            await update(workflowRef, {
-                checklist: updatedChecklist,
-                isDone: allTasksCompleted,
-                updatedAt: Date.now(),
-            });
+                const allTasksCompleted =
+                    updatedChecklist?.every(
+                        (task: ChecklistTask) => task.checked,
+                    ) ?? false;
 
-            antdMessage.success(
-                allTasksCompleted
-                    ? "Tất cả công việc đã hoàn thành!"
-                    : "Đã cập nhật công việc",
-            );
+                const basePath = isWarrantyClaim
+                    ? `xoxo/warranty_claims/${orderCode}/products/${productCode}/workflows/${legacyWorkflowId}`
+                    : `xoxo/orders/${orderCode}/products/${productCode}/workflows/${legacyWorkflowId}`;
+                const workflowRef = ref(db, basePath);
+
+                await update(workflowRef, {
+                    checklist: updatedChecklist,
+                    isDone: allTasksCompleted,
+                    updatedAt: Date.now(),
+                });
+
+                antdMessage.success(
+                    allTasksCompleted
+                        ? "Tất cả công việc đã hoàn thành!"
+                        : "Đã cập nhật công việc",
+                );
+            } else {
+                // New process instance handling
+                await ProcessFlowService.checkTask(
+                    orderCode,
+                    productCode,
+                    processInstanceId,
+                    stageId,
+                    taskId,
+                    checked,
+                    user?.uid,
+                    checkedByName,
+                    isWarrantyClaim ? "warranty_claim" : "order",
+                );
+
+                antdMessage.success(
+                    checked ? "Đã đánh dấu hoàn thành!" : "Đã bỏ đánh dấu",
+                );
+            }
         } catch (error) {
             console.error("Error updating task:", error);
             antdMessage.error(
@@ -246,10 +303,24 @@ const ProductWorkflowDetailsPage = () => {
 
     // Calculate progress
     const progress = useMemo(() => {
-        if (workflows.length === 0) return 0;
-        const completed = workflows.filter((w) => w.isDone).length;
-        return Math.round((completed / workflows.length) * 100);
-    }, [workflows]);
+        if (processInstances.length === 0) return 0;
+
+        if (usingNewStructure) {
+            const instances = processInstances as Array<
+                ProductProcessInstance & { instanceId: string }
+            >;
+            const completed = instances.filter(
+                (inst) => inst.status === "completed",
+            ).length;
+            return Math.round((completed / instances.length) * 100);
+        } else {
+            const workflows = processInstances as Array<
+                WorkflowWithChecklist & { id: string; isLegacy: boolean }
+            >;
+            const completed = workflows.filter((w) => w.isDone).length;
+            return Math.round((completed / workflows.length) * 100);
+        }
+    }, [processInstances, usingNewStructure]);
 
     if (orderLoading || warrantyClaimLoading) {
         return (
@@ -332,386 +403,431 @@ const ProductWorkflowDetailsPage = () => {
                     </div>
                 </Card>
 
-                {/* Workflow Timeline */}
-                {workflows.length > 0 ? (
+                {/* Process Timeline */}
+                {processInstances.length > 0 ? (
                     <Card>
                         <Title level={5} className="mb-4">
                             Chi tiết quy trình
                         </Title>
                         <Timeline
                             mode="left"
-                            items={workflows.map((workflow, index) => {
-                                const isCompleted = workflow.isDone;
-                                const isProcessing =
-                                    !isCompleted &&
-                                    (workflow.checklist?.some(
-                                        (task) => task.checked,
-                                    ) ??
-                                        false);
-                                const isPending = !isCompleted && !isProcessing;
+                            items={processInstances
+                                .map((item: any, index: number) => {
+                                    // Handle legacy workflow structure
+                                    if (item.isLegacy) {
+                                        const workflow =
+                                            item as WorkflowWithChecklist & {
+                                                id: string;
+                                                isLegacy: boolean;
+                                            };
+                                        const isCompleted = workflow.isDone;
+                                        const isProcessing =
+                                            !isCompleted &&
+                                            (workflow.checklist?.some(
+                                                (task: ChecklistTask) =>
+                                                    task.checked,
+                                            ) ??
+                                                false);
+                                        const isPending =
+                                            !isCompleted && !isProcessing;
 
-                                // Check if previous workflow is completed
-                                const previousWorkflow =
-                                    index > 0 ? workflows[index - 1] : null;
-                                const isPreviousCompleted =
-                                    previousWorkflow?.isDone ?? true; // First workflow is always enabled
-                                const isDisabled = !isPreviousCompleted; // Disable if previous workflow is not completed
+                                        // Check if previous workflow is completed
+                                        const previousWorkflow =
+                                            index > 0
+                                                ? (processInstances[
+                                                      index - 1
+                                                  ] as any)
+                                                : null;
+                                        const isPreviousCompleted =
+                                            previousWorkflow?.isDone ?? true;
+                                        const isDisabled = !isPreviousCompleted;
 
-                                // Calculate checklist progress
-                                const checklistProgress = workflow.checklist
-                                    ? Math.round(
-                                          (workflow.checklist.filter(
-                                              (t) => t.checked,
-                                          ).length /
-                                              workflow.checklist.length) *
-                                              100,
-                                      )
-                                    : 0;
+                                        // Calculate checklist progress
+                                        const checklistProgress =
+                                            workflow.checklist
+                                                ? Math.round(
+                                                      (workflow.checklist.filter(
+                                                          (t: ChecklistTask) =>
+                                                              t.checked,
+                                                      ).length /
+                                                          workflow.checklist
+                                                              .length) *
+                                                          100,
+                                                  )
+                                                : 0;
 
-                                return {
-                                    dot: isCompleted ? (
-                                        <CheckCircleOutlined
-                                            style={{
-                                                fontSize: 20,
-                                                color: "#52c41a",
-                                            }}
-                                        />
-                                    ) : isProcessing ? (
-                                        <ClockCircleOutlined
-                                            style={{
-                                                fontSize: 20,
-                                                color: "#1890ff",
-                                            }}
-                                        />
-                                    ) : (
-                                        <CloseCircleOutlined
-                                            style={{
-                                                fontSize: 20,
-                                                color: "#d9d9d9",
-                                            }}
-                                        />
-                                    ),
-                                    color: isCompleted
-                                        ? "green"
-                                        : isProcessing
-                                          ? "blue"
-                                          : "gray",
-                                    children: (
-                                        <div className="pl-4">
-                                            <Card
-                                                size="small"
-                                                className={`mb-4 ${
-                                                    isCompleted
-                                                        ? "border-green-500 bg-green-50"
-                                                        : isProcessing
-                                                          ? "border-blue-500 bg-blue-50"
-                                                          : isDisabled
-                                                            ? "border-gray-200 bg-gray-50 opacity-60"
-                                                            : "border-gray-300"
-                                                }`}
-                                            >
-                                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <Text
-                                                                strong
-                                                                className="text-base"
-                                                            >
-                                                                {workflow.workflowName.join(
-                                                                    ", ",
-                                                                ) ||
-                                                                    `Công đoạn ${index + 1}`}
-                                                            </Text>
-                                                            {isCompleted ? (
-                                                                <Tag color="success">
-                                                                    Hoàn thành
-                                                                </Tag>
-                                                            ) : isProcessing ? (
-                                                                <Tag color="processing">
-                                                                    Đang thực
-                                                                    hiện
-                                                                </Tag>
-                                                            ) : isDisabled ? (
-                                                                <Tag color="default">
-                                                                    Chờ quy
-                                                                    trình trước
-                                                                </Tag>
-                                                            ) : (
-                                                                <Tag>
-                                                                    Chờ xử lý
-                                                                </Tag>
-                                                            )}
-                                                        </div>
-
-                                                        {isDisabled && (
-                                                            <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                                                                <Text
-                                                                    type="warning"
-                                                                    className="text-xs"
-                                                                >
-                                                                    ⚠️ Vui lòng
-                                                                    hoàn thành
-                                                                    quy trình
-                                                                    trước đó
-                                                                    trước khi
-                                                                    thực hiện
-                                                                    quy trình
-                                                                    này
-                                                                </Text>
-                                                            </div>
-                                                        )}
-
-                                                        {workflow.departmentCode && (
-                                                            <Text
-                                                                type="secondary"
-                                                                className="text-sm block mb-2"
-                                                            >
-                                                                Phòng ban:{" "}
-                                                                {departments[
-                                                                    workflow
-                                                                        .departmentCode
-                                                                ]?.name ||
-                                                                    workflow.departmentCode}
-                                                            </Text>
-                                                        )}
-
-                                                        {/* Assigned Members */}
-                                                        {workflow.members &&
-                                                            workflow.members
-                                                                .length > 0 && (
-                                                                <div className="mb-3">
+                                        return {
+                                            dot: isCompleted ? (
+                                                <CheckCircleOutlined
+                                                    style={{
+                                                        fontSize: 20,
+                                                        color: "#52c41a",
+                                                    }}
+                                                />
+                                            ) : isProcessing ? (
+                                                <ClockCircleOutlined
+                                                    style={{
+                                                        fontSize: 20,
+                                                        color: "#1890ff",
+                                                    }}
+                                                />
+                                            ) : (
+                                                <CloseCircleOutlined
+                                                    style={{
+                                                        fontSize: 20,
+                                                        color: "#d9d9d9",
+                                                    }}
+                                                />
+                                            ),
+                                            color: isCompleted
+                                                ? "green"
+                                                : isProcessing
+                                                  ? "blue"
+                                                  : "gray",
+                                            children: (
+                                                <div className="pl-4">
+                                                    <Card
+                                                        size="small"
+                                                        className={`mb-4 ${
+                                                            isCompleted
+                                                                ? "border-green-500 bg-green-50"
+                                                                : isProcessing
+                                                                  ? "border-blue-500 bg-blue-50"
+                                                                  : isDisabled
+                                                                    ? "border-gray-200 bg-gray-50 opacity-60"
+                                                                    : "border-gray-300"
+                                                        }`}
+                                                    >
+                                                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-2">
                                                                     <Text
-                                                                        type="secondary"
-                                                                        className="text-sm block mb-1"
+                                                                        strong
+                                                                        className="text-base"
                                                                     >
-                                                                        Nhân
-                                                                        viên
-                                                                        thực
-                                                                        hiện:
+                                                                        {workflow.workflowName.join(
+                                                                            ", ",
+                                                                        ) ||
+                                                                            `Công đoạn ${index + 1}`}
                                                                     </Text>
-                                                                    <Space
-                                                                        size="small"
-                                                                        wrap
-                                                                    >
-                                                                        {workflow.members.map(
-                                                                            (
-                                                                                memberId,
-                                                                            ) => {
-                                                                                const member =
-                                                                                    membersMap[
-                                                                                        memberId
-                                                                                    ];
-                                                                                return (
-                                                                                    <Tag
-                                                                                        key={
-                                                                                            memberId
-                                                                                        }
-                                                                                    >
-                                                                                        <Space
-                                                                                            size={
-                                                                                                4
-                                                                                            }
-                                                                                        >
-                                                                                            <Avatar
-                                                                                                size={
-                                                                                                    16
-                                                                                                }
-                                                                                            >
-                                                                                                {member?.name?.charAt(
-                                                                                                    0,
-                                                                                                ) ||
-                                                                                                    "?"}
-                                                                                            </Avatar>
-                                                                                            <span>
-                                                                                                {member?.name ||
-                                                                                                    memberId}
-                                                                                            </span>
-                                                                                        </Space>
-                                                                                    </Tag>
-                                                                                );
-                                                                            },
-                                                                        )}
-                                                                    </Space>
+                                                                    {isCompleted ? (
+                                                                        <Tag color="success">
+                                                                            Hoàn
+                                                                            thành
+                                                                        </Tag>
+                                                                    ) : isProcessing ? (
+                                                                        <Tag color="processing">
+                                                                            Đang
+                                                                            thực
+                                                                            hiện
+                                                                        </Tag>
+                                                                    ) : isDisabled ? (
+                                                                        <Tag color="default">
+                                                                            Chờ
+                                                                            quy
+                                                                            trình
+                                                                            trước
+                                                                        </Tag>
+                                                                    ) : (
+                                                                        <Tag>
+                                                                            Chờ
+                                                                            xử
+                                                                            lý
+                                                                        </Tag>
+                                                                    )}
                                                                 </div>
-                                                            )}
 
-                                                        {/* Checklist Tasks */}
-                                                        {workflow.checklist &&
-                                                            workflow.checklist
-                                                                .length > 0 && (
-                                                                <div className="mt-3">
-                                                                    <div className="flex items-center justify-between mb-2">
+                                                                {isDisabled && (
+                                                                    <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
                                                                         <Text
-                                                                            strong
-                                                                            className="text-sm"
-                                                                        >
-                                                                            Danh
-                                                                            sách
-                                                                            công
-                                                                            việc
-                                                                        </Text>
-                                                                        <Text
-                                                                            type="secondary"
+                                                                            type="warning"
                                                                             className="text-xs"
                                                                         >
-                                                                            {
-                                                                                workflow.checklist.filter(
-                                                                                    (
-                                                                                        t,
-                                                                                    ) =>
-                                                                                        t.checked,
-                                                                                )
-                                                                                    .length
-                                                                            }{" "}
-                                                                            /{" "}
-                                                                            {
-                                                                                workflow
-                                                                                    .checklist
-                                                                                    .length
-                                                                            }{" "}
+                                                                            ⚠️
+                                                                            Vui
+                                                                            lòng
                                                                             hoàn
                                                                             thành
+                                                                            quy
+                                                                            trình
+                                                                            trước
+                                                                            đó
+                                                                            trước
+                                                                            khi
+                                                                            thực
+                                                                            hiện
+                                                                            quy
+                                                                            trình
+                                                                            này
                                                                         </Text>
                                                                     </div>
-                                                                    <Progress
-                                                                        percent={
-                                                                            checklistProgress
-                                                                        }
-                                                                        size="small"
-                                                                        className="mb-3"
-                                                                    />
-                                                                    <div className="space-y-2">
-                                                                        {workflow.checklist
-                                                                            .sort(
-                                                                                (
-                                                                                    a,
-                                                                                    b,
-                                                                                ) =>
-                                                                                    a.task_order -
-                                                                                    b.task_order,
-                                                                            )
-                                                                            .map(
-                                                                                (
-                                                                                    task,
-                                                                                ) => (
-                                                                                    <div
-                                                                                        key={
-                                                                                            task.id
-                                                                                        }
-                                                                                        className="flex items-start gap-2 p-2 rounded"
-                                                                                        style={{
-                                                                                            backgroundColor:
-                                                                                                task.checked
-                                                                                                    ? "#2d4a2d"
-                                                                                                    : "#27272a",
-                                                                                            border: `1px solid ${
-                                                                                                task.checked
-                                                                                                    ? "rgba(82, 196, 26, 0.3)"
-                                                                                                    : "rgba(255, 255, 255, 0.1)"
-                                                                                            }`,
-                                                                                        }}
-                                                                                    >
-                                                                                        <Checkbox
-                                                                                            checked={
-                                                                                                task.checked
-                                                                                            }
-                                                                                            onChange={(
-                                                                                                e,
-                                                                                            ) =>
-                                                                                                handleTaskToggle(
-                                                                                                    workflow.id,
-                                                                                                    task.id,
-                                                                                                    e
-                                                                                                        .target
-                                                                                                        .checked,
-                                                                                                )
-                                                                                            }
-                                                                                            disabled={
-                                                                                                isCompleted ||
-                                                                                                isDisabled
-                                                                                            }
-                                                                                            className="mt-1"
-                                                                                        />
-                                                                                        <div className="flex-1">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <Text
-                                                                                                    style={{
-                                                                                                        color: task.checked
-                                                                                                            ? "#a1a1aa"
-                                                                                                            : "#fafafa",
-                                                                                                    }}
-                                                                                                    className={
-                                                                                                        task.checked
-                                                                                                            ? "line-through"
-                                                                                                            : ""
+                                                                )}
+
+                                                                {workflow.departmentCode && (
+                                                                    <Text
+                                                                        type="secondary"
+                                                                        className="text-sm block mb-2"
+                                                                    >
+                                                                        Phòng
+                                                                        ban:{" "}
+                                                                        {departments[
+                                                                            workflow
+                                                                                .departmentCode
+                                                                        ]
+                                                                            ?.name ||
+                                                                            workflow.departmentCode}
+                                                                    </Text>
+                                                                )}
+
+                                                                {/* Assigned Members */}
+                                                                {workflow.members &&
+                                                                    workflow
+                                                                        .members
+                                                                        .length >
+                                                                        0 && (
+                                                                        <div className="mb-3">
+                                                                            <Text
+                                                                                type="secondary"
+                                                                                className="text-sm block mb-1"
+                                                                            >
+                                                                                Nhân
+                                                                                viên
+                                                                                thực
+                                                                                hiện:
+                                                                            </Text>
+                                                                            <Space
+                                                                                size="small"
+                                                                                wrap
+                                                                            >
+                                                                                {workflow.members.map(
+                                                                                    (
+                                                                                        memberId,
+                                                                                    ) => {
+                                                                                        const member =
+                                                                                            membersMap[
+                                                                                                memberId
+                                                                                            ];
+                                                                                        return (
+                                                                                            <Tag
+                                                                                                key={
+                                                                                                    memberId
+                                                                                                }
+                                                                                            >
+                                                                                                <Space
+                                                                                                    size={
+                                                                                                        4
                                                                                                     }
                                                                                                 >
-                                                                                                    {
-                                                                                                        task.task_name
-                                                                                                    }
-                                                                                                </Text>
-                                                                                                {task.checked &&
-                                                                                                    task.checkedByName && (
-                                                                                                        <Tag
-                                                                                                            color="success"
-                                                                                                            className="text-xs"
-                                                                                                        >
-                                                                                                            Người
-                                                                                                            thực
-                                                                                                            hiên:{" "}
-                                                                                                            {
-                                                                                                                task.checkedByName
-                                                                                                            }
-                                                                                                        </Tag>
-                                                                                                    )}
-                                                                                            </div>
-                                                                                            {task.checked &&
-                                                                                                task.checked_at && (
-                                                                                                    <Text
-                                                                                                        type="secondary"
-                                                                                                        className="text-xs block mt-1"
-                                                                                                        style={{
-                                                                                                            color: "#a1a1aa",
-                                                                                                        }}
+                                                                                                    <Avatar
+                                                                                                        size={
+                                                                                                            16
+                                                                                                        }
                                                                                                     >
-                                                                                                        Hoàn
-                                                                                                        thành:{" "}
-                                                                                                        {dayjs(
-                                                                                                            task.checked_at,
-                                                                                                        ).format(
-                                                                                                            "DD/MM/YYYY HH:mm",
-                                                                                                        )}
-                                                                                                    </Text>
-                                                                                                )}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ),
-                                                                            )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                                                                        {member?.name?.charAt(
+                                                                                                            0,
+                                                                                                        ) ||
+                                                                                                            "?"}
+                                                                                                    </Avatar>
+                                                                                                    <span>
+                                                                                                        {member?.name ||
+                                                                                                            memberId}
+                                                                                                    </span>
+                                                                                                </Space>
+                                                                                            </Tag>
+                                                                                        );
+                                                                                    },
+                                                                                )}
+                                                                            </Space>
+                                                                        </div>
+                                                                    )}
 
-                                                        {/* Update Time */}
-                                                        {workflow.updatedAt && (
-                                                            <Text
-                                                                type="secondary"
-                                                                className="text-xs block mt-2"
-                                                            >
-                                                                Cập nhật:{" "}
-                                                                {dayjs(
-                                                                    workflow.updatedAt,
-                                                                ).format(
-                                                                    "DD/MM/YYYY HH:mm",
+                                                                {/* Checklist Tasks */}
+                                                                {workflow.checklist &&
+                                                                    workflow
+                                                                        .checklist
+                                                                        .length >
+                                                                        0 && (
+                                                                        <div className="mt-3">
+                                                                            <div className="flex items-center justify-between mb-2">
+                                                                                <Text
+                                                                                    strong
+                                                                                    className="text-sm"
+                                                                                >
+                                                                                    Danh
+                                                                                    sách
+                                                                                    công
+                                                                                    việc
+                                                                                </Text>
+                                                                                <Text
+                                                                                    type="secondary"
+                                                                                    className="text-xs"
+                                                                                >
+                                                                                    {
+                                                                                        workflow.checklist.filter(
+                                                                                            (
+                                                                                                t,
+                                                                                            ) =>
+                                                                                                t.checked,
+                                                                                        )
+                                                                                            .length
+                                                                                    }{" "}
+                                                                                    /{" "}
+                                                                                    {
+                                                                                        workflow
+                                                                                            .checklist
+                                                                                            .length
+                                                                                    }{" "}
+                                                                                    hoàn
+                                                                                    thành
+                                                                                </Text>
+                                                                            </div>
+                                                                            <Progress
+                                                                                percent={
+                                                                                    checklistProgress
+                                                                                }
+                                                                                size="small"
+                                                                                className="mb-3"
+                                                                            />
+                                                                            <div className="space-y-2">
+                                                                                {workflow.checklist
+                                                                                    .sort(
+                                                                                        (
+                                                                                            a,
+                                                                                            b,
+                                                                                        ) =>
+                                                                                            a.task_order -
+                                                                                            b.task_order,
+                                                                                    )
+                                                                                    .map(
+                                                                                        (
+                                                                                            task,
+                                                                                        ) => (
+                                                                                            <div
+                                                                                                key={
+                                                                                                    task.id
+                                                                                                }
+                                                                                                className="flex items-start gap-2 p-2 rounded"
+                                                                                                style={{
+                                                                                                    backgroundColor:
+                                                                                                        task.checked
+                                                                                                            ? "#2d4a2d"
+                                                                                                            : "#27272a",
+                                                                                                    border: `1px solid ${
+                                                                                                        task.checked
+                                                                                                            ? "rgba(82, 196, 26, 0.3)"
+                                                                                                            : "rgba(255, 255, 255, 0.1)"
+                                                                                                    }`,
+                                                                                                }}
+                                                                                            >
+                                                                                                <Checkbox
+                                                                                                    checked={
+                                                                                                        task.checked
+                                                                                                    }
+                                                                                                    onChange={(
+                                                                                                        e,
+                                                                                                    ) =>
+                                                                                                        handleTaskToggle(
+                                                                                                            workflow.id,
+                                                                                                            "",
+                                                                                                            task.id,
+                                                                                                            e
+                                                                                                                .target
+                                                                                                                .checked,
+                                                                                                            true,
+                                                                                                            workflow.id,
+                                                                                                        )
+                                                                                                    }
+                                                                                                    disabled={
+                                                                                                        isCompleted ||
+                                                                                                        isDisabled
+                                                                                                    }
+                                                                                                    className="mt-1"
+                                                                                                />
+                                                                                                <div className="flex-1">
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <Text
+                                                                                                            style={{
+                                                                                                                color: task.checked
+                                                                                                                    ? "#a1a1aa"
+                                                                                                                    : "#fafafa",
+                                                                                                            }}
+                                                                                                            className={
+                                                                                                                task.checked
+                                                                                                                    ? "line-through"
+                                                                                                                    : ""
+                                                                                                            }
+                                                                                                        >
+                                                                                                            {
+                                                                                                                task.task_name
+                                                                                                            }
+                                                                                                        </Text>
+                                                                                                        {task.checked &&
+                                                                                                            task.checkedByName && (
+                                                                                                                <Tag
+                                                                                                                    color="success"
+                                                                                                                    className="text-xs"
+                                                                                                                >
+                                                                                                                    Người
+                                                                                                                    thực
+                                                                                                                    hiên:{" "}
+                                                                                                                    {
+                                                                                                                        task.checkedByName
+                                                                                                                    }
+                                                                                                                </Tag>
+                                                                                                            )}
+                                                                                                    </div>
+                                                                                                    {task.checked &&
+                                                                                                        task.checked_at && (
+                                                                                                            <Text
+                                                                                                                type="secondary"
+                                                                                                                className="text-xs block mt-1"
+                                                                                                                style={{
+                                                                                                                    color: "#a1a1aa",
+                                                                                                                }}
+                                                                                                            >
+                                                                                                                Hoàn
+                                                                                                                thành:{" "}
+                                                                                                                {dayjs(
+                                                                                                                    task.checked_at,
+                                                                                                                ).format(
+                                                                                                                    "DD/MM/YYYY HH:mm",
+                                                                                                                )}
+                                                                                                            </Text>
+                                                                                                        )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        ),
+                                                                                    )}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                {/* Update Time */}
+                                                                {workflow.updatedAt && (
+                                                                    <Text
+                                                                        type="secondary"
+                                                                        className="text-xs block mt-2"
+                                                                    >
+                                                                        Cập
+                                                                        nhật:{" "}
+                                                                        {dayjs(
+                                                                            workflow.updatedAt,
+                                                                        ).format(
+                                                                            "DD/MM/YYYY HH:mm",
+                                                                        )}
+                                                                    </Text>
                                                                 )}
-                                                            </Text>
-                                                        )}
-                                                    </div>
+                                                            </div>
+                                                        </div>
+                                                    </Card>
                                                 </div>
-                                            </Card>
-                                        </div>
-                                    ),
-                                };
-                            })}
+                                            ),
+                                        };
+                                    }
+                                    // For new process instances, return null for now (will be implemented later)
+                                    return null;
+                                })
+                                .filter((item) => item !== null)}
                         />
                     </Card>
                 ) : (
