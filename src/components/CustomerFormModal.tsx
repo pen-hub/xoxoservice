@@ -7,7 +7,7 @@ import type {
     Province,
     Ward,
 } from "@/types/customer";
-import { CustomerSource, CustomerSourceOptions, LeadStatus, LeadStatusOptions } from "@/types/enum";
+import { CustomerSource, CustomerSourceOptions, LeadStatusOptions } from "@/types/enum";
 import { IMembers } from "@/types/members";
 import { genCode } from "@/utils/genCode";
 import { PlusOutlined, UserOutlined } from "@ant-design/icons";
